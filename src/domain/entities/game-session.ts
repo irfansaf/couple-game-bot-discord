@@ -31,6 +31,9 @@ export const coupleQuestionMaxPlayers = 8;
 export const thisOrThatMode = "this_or_that" satisfies GameMode;
 export const thisOrThatMinPlayers = 2;
 export const thisOrThatMaxPlayers = 8;
+export const afterDarkMode = "after_dark" satisfies GameMode;
+export const afterDarkMinPlayers = 1;
+export const afterDarkMaxPlayers = 8;
 export const defaultPlayContext = "e_meet" satisfies PlayContext;
 
 export interface ThisOrThatVote {
@@ -237,6 +240,89 @@ export function joinCoupleQuestionSession(
   return {
     ...session,
     players: [...session.players, userId],
+  };
+}
+
+export function joinAfterDarkSession(
+  session: GameSession,
+  userId: UserId,
+  maxPlayers = afterDarkMaxPlayers,
+): GameSession {
+  assertActive(session, "Cannot join an ended session.");
+  assertAfterDark(session, "Cannot join a non After Dark session.");
+
+  if (session.phase !== "lobby") {
+    throw new DomainValidationError("Cannot join after After Dark has started.");
+  }
+
+  if (session.players.includes(userId)) {
+    return session;
+  }
+
+  if (session.players.length >= maxPlayers) {
+    throw new DomainValidationError("After Dark lobby is full.");
+  }
+
+  return {
+    ...session,
+    players: [...session.players, userId],
+  };
+}
+
+export function leaveAfterDarkSession(
+  session: GameSession,
+  userId: UserId,
+  now = new Date(),
+): GameSession {
+  assertActive(session, "Cannot leave an ended session.");
+  assertAfterDark(session, "Cannot leave a non After Dark session.");
+
+  if (session.phase !== "lobby") {
+    throw new DomainValidationError("Cannot leave after After Dark has started.");
+  }
+
+  const players = session.players.filter((playerId) => playerId !== userId);
+
+  if (players.length === session.players.length) {
+    return session;
+  }
+
+  if (players.length === 0) {
+    return endGameSession(session, now);
+  }
+
+  const firstPlayer = players[0];
+
+  if (firstPlayer === undefined) {
+    return endGameSession(session, now);
+  }
+
+  return {
+    ...session,
+    hostUserId: players.includes(session.hostUserId) ? session.hostUserId : firstPlayer,
+    players,
+  };
+}
+
+export function startAfterDarkSession(session: GameSession): GameSession {
+  assertActive(session, "Cannot start an ended session.");
+  assertAfterDark(session, "Cannot start a non After Dark session.");
+
+  if (session.phase !== "lobby") {
+    return session;
+  }
+
+  if (session.players.length < afterDarkMinPlayers) {
+    throw new DomainValidationError("After Dark needs at least 1 player.");
+  }
+
+  return {
+    ...session,
+    phase: "prompt_revealed",
+    currentPrompt: undefined,
+    promptQueue: [],
+    promptQueueType: afterDarkMode,
+    choiceVotes: [],
   };
 }
 
@@ -623,10 +709,17 @@ function assertThisOrThat(session: GameSession, message: string): void {
   }
 }
 
+function assertAfterDark(session: GameSession, message: string): void {
+  if (session.mode !== afterDarkMode) {
+    throw new DomainValidationError(message);
+  }
+}
+
 function isLobbyMode(mode: GameMode): boolean {
   return (
     mode === truthOrDareMode ||
     mode === coupleQuestionMode ||
-    mode === thisOrThatMode
+    mode === thisOrThatMode ||
+    mode === afterDarkMode
   );
 }

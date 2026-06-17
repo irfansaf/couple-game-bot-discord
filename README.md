@@ -24,7 +24,8 @@ AI_MODEL=deepseek-v4-flash
 AI_TIMEOUT_MS=30000
 AI_MAX_ATTEMPTS=3
 AI_MAX_TOKENS=1800
-AI_TEMPERATURE=0.7
+AI_TEMPERATURE=1.15
+AI_MAX_CONTEXT_TOKENS=16000
 AI_THINKING_MODE=auto
 LOG_LEVEL=debug
 ```
@@ -37,7 +38,15 @@ Each session stores recent prompt IDs and recent prompt text. AI generation rece
 
 AI requests are logged through Pino. Use `LOG_LEVEL=debug` while testing providers to see request metadata, attempt number, timeout duration, HTTP status, validation failures, and fallback context. Logs redact credentials and avoid private answer content.
 
-For DeepSeek, `AI_THINKING_MODE=auto` sends non-thinking requests by default because this bot needs fast JSON prompts more than long reasoning. Use `deepseek-v4-flash` for the quickest game UX; reserve Pro for later features that need heavier reasoning.
+For DeepSeek, `AI_THINKING_MODE=auto` sends non-thinking requests by default because this bot needs fast JSON prompts more than long reasoning. Use `deepseek-v4-flash` for the quickest game UX; reserve Pro for later features that need heavier reasoning. `AI_MAX_CONTEXT_TOKENS` trims old recent prompt history before requests so the game keeps a predictable context budget.
+
+AI prompt behavior is centralized in `src/content/ai-prompt-catalog.ts`. Use the project `ai-engineer` skill when evaluating prompt quality, changing mode guidance, tuning provider settings, or debugging repeated/invalid AI prompts.
+
+Generated AI output evaluation lives in `ai-workbench/`. Put local captures in `ai-workbench/generated`, keep sanitized shareable examples in `ai-workbench/samples`, then run:
+
+```bash
+bun run ai:validate
+```
 
 Start a session in Discord with:
 
@@ -54,9 +63,11 @@ Truth or Dare also has a lobby play context:
 
 Changing play context is host-only and only available before Start. The dare queue is scoped to the selected context.
 
-Truth, Dare, Couple Questions, and This or That now run as contextual game sessions. Truth and Dare are available only inside the full Truth or Dare session.
+Truth, Dare, Couple Questions, This or That, and After Dark now run as contextual game sessions. Truth and Dare are available only inside the full Truth or Dare session.
 
 Couple Questions starts as a lobby with `Join`, `Leave`, `Start`, `Rules`, and `End`. The host can start with 1 or more players, so it works solo, as a couple, or as a tiny private group. Once active, it uses `Answer`, `Next`, `Skip`, `Softer`, `Deeper`, and `End`. `Answer` opens a private modal for joined players; once every joined player answers, the bot reveals the answers together. Private answers are kept only in bot memory until reveal or round change, not persisted as history.
+
+After Dark is a consent-gated intimate mode for warmer adult couple prompts. It starts as a lobby, can start with 1 or more joined players, and keeps prompts sensual, non-explicit, pressure-free, and skippable. Its active controls are `Answer`, `Next`, `Skip`, `Softer`, `Warmer`, and `End`.
 
 This or That starts as a lobby with `Join`, `Leave`, `Start`, `Rules`, and `End`. After Start, each joined player secretly picks `Left` or `Right`; the bot reveals the split only after everyone has voted, then unlocks `Next`, `Skip`, `Softer`, and `End`.
 
@@ -68,6 +79,7 @@ This or That starts as a lobby with `Join`, `Leave`, `Start`, `Rules`, and `End`
 - `bun run db:down` stops the local Postgres container.
 - `bun run db:generate` generates Drizzle migrations from the Postgres schema.
 - `bun run db:migrate` applies Drizzle migrations to `DATABASE_URL`.
+- `bun run ai:validate` validates AI output captures from `ai-workbench/generated`.
 - `bun run typecheck` checks strict TypeScript.
 - `bun run test` runs the test suite through Vitest.
 
@@ -105,5 +117,5 @@ If startup fails with `403`, reinvite the bot with both scopes: `bot` and `appli
 - `src/infrastructure` implements adapters for Postgres, AI, Discord clients, and logging.
 - `src/presentation` maps Discord commands, buttons, and embeds to application behavior.
 - `src/config` validates runtime configuration.
-- `src/content` keeps static question packs and prompt/safety templates reviewable.
+- `src/content` keeps the central AI prompt catalog, static question packs, and prompt/safety templates reviewable.
 - `src/shared` holds dependency-light utilities.

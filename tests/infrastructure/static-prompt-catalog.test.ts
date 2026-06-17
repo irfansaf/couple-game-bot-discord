@@ -49,4 +49,17 @@ describe("StaticPromptCatalog", () => {
 
     expect(prompt?.id).toBe("meet-dare");
   });
+
+  it("serves non-explicit After Dark prompts", async () => {
+    const prompt = await new StaticPromptCatalog().select({
+      type: "after_dark",
+      mood: "flirty_safe",
+      intensity: createIntensity(2),
+      recentPromptIds: [],
+      recentPromptTexts: [],
+    });
+
+    expect(prompt?.type).toBe("after_dark");
+    expect(prompt?.text.toLowerCase()).not.toContain("explicit");
+  });
 });

@@ -19,7 +19,8 @@ const environmentSchema = z.object({
   AI_TIMEOUT_MS: z.coerce.number().int().positive().default(30000),
   AI_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(3).default(3),
   AI_MAX_TOKENS: z.coerce.number().int().positive().default(1800),
-  AI_TEMPERATURE: z.coerce.number().min(0).max(2).default(0.7),
+  AI_TEMPERATURE: z.coerce.number().min(0).max(2).default(1.15),
+  AI_MAX_CONTEXT_TOKENS: z.coerce.number().int().min(1024).default(16000),
   AI_THINKING_MODE: z
     .enum(["auto", "disabled", "enabled", "provider_default"])
     .default("auto"),
@@ -53,6 +54,7 @@ export interface AiProviderConfig {
   readonly maxAttempts: number;
   readonly maxTokens: number;
   readonly temperature: number;
+  readonly maxContextTokens: number;
   readonly thinkingMode: "auto" | "disabled" | "enabled" | "provider_default";
 }
 
@@ -63,6 +65,7 @@ export interface DisabledAiConfig {
   readonly maxAttempts: number;
   readonly maxTokens: number;
   readonly temperature: number;
+  readonly maxContextTokens: number;
   readonly thinkingMode: "auto" | "disabled" | "enabled" | "provider_default";
 }
 
@@ -107,6 +110,7 @@ export function loadEnv(
             maxAttempts: parsed.AI_MAX_ATTEMPTS,
             maxTokens: parsed.AI_MAX_TOKENS,
             temperature: parsed.AI_TEMPERATURE,
+            maxContextTokens: parsed.AI_MAX_CONTEXT_TOKENS,
             thinkingMode: parsed.AI_THINKING_MODE,
           }
         : {
@@ -116,6 +120,7 @@ export function loadEnv(
             maxAttempts: parsed.AI_MAX_ATTEMPTS,
             maxTokens: parsed.AI_MAX_TOKENS,
             temperature: parsed.AI_TEMPERATURE,
+            maxContextTokens: parsed.AI_MAX_CONTEXT_TOKENS,
             thinkingMode: parsed.AI_THINKING_MODE,
           },
     database: {
@@ -143,6 +148,7 @@ export function summarizeConfig(config: RuntimeConfig): Record<string, unknown> 
       maxAttempts: config.ai.maxAttempts,
       maxTokens: config.ai.maxTokens,
       temperature: config.ai.temperature,
+      maxContextTokens: config.ai.maxContextTokens,
       thinkingMode: config.ai.thinkingMode,
     },
     database: {

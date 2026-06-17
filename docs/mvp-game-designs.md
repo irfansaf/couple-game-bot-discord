@@ -19,6 +19,7 @@ This document defines the complete MVP game set for CoupleGame. Each mode should
 | Truth or Dare | Turn-based party/couple challenge game | Lobby -> turn choice -> prompt -> resolution -> next turn | Implemented, see `truth-or-dare-design.md` |
 | Couple Questions | Cozy shared conversation prompts | Lobby -> prompt -> optional private answers -> reveal together -> next prompt | Lobby and private answers implemented |
 | This or That | Secret-vote preference comparison | Lobby -> choice prompt -> all players vote -> reveal -> next prompt | Advanced MVP implemented |
+| After Dark | Warmer adult-intimate couple prompts | Consent lobby -> prompt -> optional private answers -> reveal together -> next prompt | Implemented as non-explicit intimate mode |
 
 ## Couple Questions
 
@@ -242,6 +243,75 @@ Future:
 - Results reveal only after every joined player has voted.
 - `Next` draws another This or That prompt after reveal.
 - AI/static queue uses `this_or_that` only.
+
+## After Dark
+
+### Mode Goal
+
+After Dark should feel like the warmer private deck a couple chooses when they want flirtier, more intimate conversation. It is adult in vibe, but still non-explicit, consent-first, and easy to soften or leave.
+
+### Player Setup
+
+- Starts with a consent lobby.
+- Minimum players: 1.
+- Maximum players: 8.
+- The session starter is host.
+- Host starts only when joined players are comfortable.
+- Only joined players can use active controls and private answers.
+
+### State Machine
+
+1. **Lobby**
+   - Show host and players.
+   - Rules explain consent, non-explicit boundary, skip, and private answer reveal.
+
+2. **Prompt Revealed**
+   - Show one After Dark prompt.
+   - Optional follow-up appears as a field.
+   - Footer shows mood, intensity, source, and round.
+
+3. **Private Answer**
+   - `Answer` opens a private modal.
+   - Reveal waits for every joined player.
+   - Private answers are not persisted.
+
+4. **Warmth Adjustment**
+   - Softer lowers intensity.
+   - Warmer raises intensity within the safe non-explicit cap.
+   - Skip draws another prompt without judgment.
+
+5. **Ended**
+   - Mark session ended.
+
+### Buttons
+
+- `Join`
+- `Leave`
+- `Start`
+- `Rules`
+- `Answer`
+- `Next`
+- `Skip`
+- `Softer`
+- `Warmer`
+- `End`
+
+### Prompt Rules
+
+Good After Dark prompts:
+- Invite desire, closeness, atmosphere, attention, affection, and boundaries.
+- Avoid graphic sexual acts, explicit body details, coercion, pressure, humiliation, or shame.
+- Keep skip and soften behavior emotionally neutral.
+
+### Acceptance Criteria
+
+- `/game start mode:After Dark` shows a lobby.
+- Host can start with only themselves in the lobby.
+- `Start` reveals only `after_dark` prompts.
+- Active buttons do not show Truth/Dare/This-or-That controls.
+- `Answer` opens a modal only for joined players.
+- Private answer reveal waits for all joined players.
+- AI/static queue uses `after_dark` only.
 
 ## Shared Implementation Order
 

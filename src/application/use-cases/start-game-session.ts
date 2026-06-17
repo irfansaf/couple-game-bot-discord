@@ -1,4 +1,5 @@
 import {
+  afterDarkMode,
   coupleQuestionMode,
   createGameSession,
   dequeuePrompt,
@@ -63,6 +64,7 @@ export class StartGameSessionUseCase {
     if (
       session.mode === truthOrDareMode ||
       session.mode === coupleQuestionMode ||
+      session.mode === afterDarkMode ||
       session.mode === thisOrThatMode
     ) {
       await this.sessions.save(session);

@@ -6,6 +6,7 @@ export const promptTypes = [
   "dare",
   "couple_question",
   "this_or_that",
+  "after_dark",
 ] as const;
 
 export type PromptType = (typeof promptTypes)[number];
@@ -14,6 +15,7 @@ export const gameModes = [
   "truth_or_dare",
   "couple_question",
   "this_or_that",
+  "after_dark",
 ] as const;
 
 export type GameMode = (typeof gameModes)[number];

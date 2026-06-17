@@ -1,60 +1,20 @@
-import { z } from "zod";
-
 import type {
   GenerateQuestionInput,
   QuestionGenerator,
 } from "../../application/ports/question-generator";
 import type { AiProviderConfig } from "../../config/env";
 import {
+  chatCompletionCaptureSchema,
+  generatedAiQuestionBatchSchema,
+  generatedAiQuestionToPrompt,
+} from "../../content/ai-generated-output";
+import {
   buildBatchQuestionGenerationMessages,
   type ChatMessage,
 } from "../../content/ai-prompt-template";
-import { moods, promptTypes, type Prompt } from "../../domain/entities/prompt";
-import { createPromptId } from "../../domain/value-objects/ids";
-import { createIntensity } from "../../domain/value-objects/intensity";
+import type { Prompt } from "../../domain/entities/prompt";
 import { PromptSafetyPolicy } from "../../domain/services/prompt-safety-policy";
 import type { Logger } from "../logging/logger";
-
-const generatedQuestionSchema = z.object({
-  type: z.enum(promptTypes),
-  mood: z.enum(moods),
-  intensity: z.number().int().min(1).max(3),
-  question: z.string().min(5).max(280),
-  followUp: z.preprocess(
-    emptyStringToUndefined,
-    z.string().min(1).max(180).optional(),
-  ),
-  safetyNotes: z
-    .union([z.array(z.string().max(120)), z.string().max(500)])
-    .default([])
-    .transform((value) => {
-      if (Array.isArray(value)) {
-        return value;
-      }
-
-      const trimmed = value.trim();
-
-      return trimmed.length === 0 ? [] : [trimmed];
-    }),
-});
-
-type GeneratedQuestion = z.infer<typeof generatedQuestionSchema>;
-
-const generatedQuestionBatchSchema = z.object({
-  questions: z.array(generatedQuestionSchema).min(1),
-});
-
-const chatCompletionSchema = z.object({
-  choices: z
-    .array(
-      z.object({
-        message: z.object({
-          content: z.string().min(1),
-        }),
-      }),
-    )
-    .min(1),
-});
 
 export class OpenAiCompatibleQuestionGenerator implements QuestionGenerator {
   public constructor(
@@ -96,14 +56,16 @@ export class OpenAiCompatibleQuestionGenerator implements QuestionGenerator {
 
       try {
         const completion = await this.createCompletion(
-          buildBatchQuestionGenerationMessages(input, count),
+          buildBatchQuestionGenerationMessages(input, count, {
+            maxContextTokens: this.config.maxContextTokens,
+          }),
           attemptContext,
         );
-        const generatedBatch = generatedQuestionBatchSchema.parse(
+        const generatedBatch = generatedAiQuestionBatchSchema.parse(
           JSON.parse(completion) as unknown,
         );
         const prompts = generatedBatch.questions.slice(0, count).map((question) =>
-          toPrompt(question, this.safetyPolicy),
+          generatedAiQuestionToPrompt(question, this.safetyPolicy),
         );
 
         this.logger?.debug("AI prompt batch request succeeded.", {
@@ -172,7 +134,7 @@ export class OpenAiCompatibleQuestionGenerator implements QuestionGenerator {
       }
 
       const payload: unknown = await response.json();
-      const completion = chatCompletionSchema.parse(payload);
+      const completion = chatCompletionCaptureSchema.parse(payload);
       const content = completion.choices[0]?.message.content;
 
       if (content === undefined) {
@@ -218,6 +180,7 @@ function buildAiRequestLogContext(
     timeoutMs: config.timeoutMs,
     maxAttempts: config.maxAttempts,
     maxTokens: config.maxTokens,
+    maxContextTokens: config.maxContextTokens,
     thinkingMode: resolvedThinkingMode(config),
     promptType: input.type,
     mood: input.mood,
@@ -282,43 +245,4 @@ function isAbortError(error: unknown): boolean {
     error instanceof Error &&
     (error.name === "AbortError" || error.message.toLowerCase().includes("aborted"))
   );
-}
-
-function emptyStringToUndefined(value: unknown): unknown {
-  if (typeof value !== "string") {
-    return value;
-  }
-
-  const trimmed = value.trim();
-
-  return trimmed.length === 0 ? undefined : trimmed;
-}
-
-function toPrompt(
-  generated: GeneratedQuestion,
-  safetyPolicy: PromptSafetyPolicy,
-): Prompt {
-  if (!safetyPolicy.isAllowed(generated.question)) {
-    throw new Error("AI provider returned a prompt that failed safety validation.");
-  }
-
-  if (
-    generated.followUp !== undefined &&
-    !safetyPolicy.isAllowed(generated.followUp)
-  ) {
-    throw new Error("AI provider returned a follow-up that failed safety validation.");
-  }
-
-  return {
-    id: createPromptId(),
-    type: generated.type,
-    mood: generated.mood,
-    intensity: createIntensity(generated.intensity),
-    text: generated.question,
-    safetyNotes: generated.safetyNotes,
-    source: "ai",
-    ...(generated.followUp === undefined
-      ? {}
-      : { followUp: generated.followUp }),
-  };
 }

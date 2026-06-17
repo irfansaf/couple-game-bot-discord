@@ -11,3 +11,8 @@ coverage/
 *.sqlite
 *.sqlite3
 *.db
+
+ai-workbench/generated/**
+!ai-workbench/generated/.gitkeep
+ai-workbench/reports/**
+!ai-workbench/reports/.gitkeep

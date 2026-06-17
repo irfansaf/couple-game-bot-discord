@@ -1,0 +1,12 @@
+{
+  "questions": [
+    {
+      "type": "after_dark",
+      "mood": "flirty_safe",
+      "intensity": 2,
+      "question": "What private compliment would feel especially good to hear tonight?",
+      "followUp": "What makes that compliment land for you?",
+      "safetyNotes": []
+    }
+  ]
+}

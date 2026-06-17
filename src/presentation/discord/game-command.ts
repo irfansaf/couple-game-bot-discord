@@ -4,6 +4,7 @@ export const gameModeChoices = [
   { name: "Truth or Dare", value: "truth_or_dare" },
   { name: "Couple Question", value: "couple_question" },
   { name: "This or That", value: "this_or_that" },
+  { name: "After Dark", value: "after_dark" },
 ] as const;
 
 export const moodChoices = [

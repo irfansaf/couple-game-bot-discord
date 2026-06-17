@@ -157,12 +157,13 @@ Use `DISCORD_GUILD_ID` for fast local slash-command registration during developm
 
 ## Project Skills
 
-This project has four project-scoped Codex skills in `.\.codex\skills`. New sessions should use them whenever the task matches their scope. Read the relevant `SKILL.md` before doing substantial work.
+This project has five project-scoped Codex skills in `.\.codex\skills`. New sessions should use them whenever the task matches their scope. Read the relevant `SKILL.md` before doing substantial work.
 
 | Skill | Path | Use When |
 |------|------|----------|
 | Product Owner | `.\.codex\skills\product-owner\SKILL.md` | Shaping MVP scope, game modes, feature backlog, release planning, or product sense review. |
 | Game Designer | `.\.codex\skills\game-designer\SKILL.md` | Designing game rules, turn flow, mode-specific controls, prompt pacing, safety limits, or translating classic games like Truth or Dare into Discord-native flows. |
+| AI Engineer | `.\.codex\skills\ai-engineer\SKILL.md` | Evaluating, validating, tuning, and improving AI prompt behavior, prompt catalogs, schemas, safety filters, provider settings, and repeat avoidance. |
 | Backend | `.\.codex\skills\backend\SKILL.md` | Building Discord bot services, AI adapters, storage, validation, tests, and deployment. |
 | Discord UX | `.\.codex\skills\discord-ux\SKILL.md` | Designing commands, embeds, buttons, interaction flows, and private answer experiences. |
 
@@ -171,9 +172,10 @@ This project has four project-scoped Codex skills in `.\.codex\skills`. New sess
 - If project skills exist and match the task, read the relevant `SKILL.md` before substantial work.
 - For product planning, start with Product Owner.
 - For game rules, mode mechanics, or classic-game adaptation, use Game Designer before implementation.
+- For AI prompts, provider tuning, schema validation, prompt quality, or repeat avoidance, use AI Engineer before implementation.
 - For implementation, use Backend first.
 - For Discord interaction design, use Discord UX when available.
-- For full product work, use this order when relevant: Product Owner -> Game Designer -> Backend -> Discord UX.
+- For full product work, use this order when relevant: Product Owner -> Game Designer -> AI Engineer -> Backend -> Discord UX.
 
 ## Knowledge Wiki
 

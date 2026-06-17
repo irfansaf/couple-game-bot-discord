@@ -11,7 +11,8 @@ const config = {
   timeoutMs: 1000,
   maxAttempts: 3,
   maxTokens: 1800,
-  temperature: 0.7,
+  temperature: 1.15,
+  maxContextTokens: 16000,
   thinkingMode: "auto",
 } as const;
 
@@ -268,5 +269,57 @@ describe("OpenAiCompatibleQuestionGenerator", () => {
       max_tokens: 1800,
       thinking: { type: "disabled" },
     });
+  });
+
+  it("trims old recent questions to stay within the configured context budget", async () => {
+    let recentQuestions: unknown;
+
+    globalThis.fetch = Object.assign(async (_url: URL | RequestInfo, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as {
+        readonly messages?: readonly { readonly role: string; readonly content: string }[];
+      };
+      const userMessage = body.messages?.find((message) => message.role === "user");
+      recentQuestions = userMessage === undefined
+        ? undefined
+        : (JSON.parse(userMessage.content) as { readonly recentQuestions: unknown })
+            .recentQuestions;
+
+      return new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  questions: [
+                    {
+                      type: "truth",
+                      mood: "cozy",
+                      intensity: 1,
+                      question: "What is one tiny thing you appreciated today?",
+                      safetyNotes: [],
+                    },
+                  ],
+                }),
+              },
+            },
+          ],
+        }),
+        { status: 200 },
+      );
+    }, originalFetch);
+
+    await new OpenAiCompatibleQuestionGenerator({
+      ...config,
+      maxContextTokens: 320,
+    }).generate({
+      ...input,
+      recentQuestions: [
+        "newest prompt to keep",
+        "middle prompt to drop because the budget is tiny",
+        "oldest prompt to drop because it is least useful",
+      ],
+    });
+
+    expect(recentQuestions).toEqual(["newest prompt to keep"]);
   });
 });

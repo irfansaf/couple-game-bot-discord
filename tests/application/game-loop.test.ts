@@ -129,6 +129,54 @@ describe("static game loop", () => {
     expect(groupPrompt.session.players).toEqual(["user-1", "user-2"]);
   });
 
+  it("runs After Dark as a consent lobby with one or more joined players", async () => {
+    const sessions = new InMemorySessionRepository();
+    const prompts = new StaticPromptCatalog();
+    const queueRefiller = new PromptQueueRefiller(prompts);
+    const startGameSession = new StartGameSessionUseCase(
+      sessions,
+      new FixedSessionIdGenerator("019ed5c9-03f7-7dc7-8660-f41abdeca21d"),
+      queueRefiller,
+    );
+    const handleAction = new HandleGameActionUseCase(sessions, queueRefiller);
+    const started = await startGameSession.execute({
+      guildId: "guild-1",
+      channelId: "channel-1",
+      startedByUserId: "user-1",
+      mode: "after_dark",
+      mood: "flirty_safe",
+      intensity: 2,
+    });
+
+    expect(started.status).toBe("session");
+    expect(started.session.mode).toBe("after_dark");
+    expect(started.session.phase).toBe("lobby");
+
+    const joined = await handleAction.execute({
+      sessionId: started.session.id,
+      action: "join",
+      userId: "user-2",
+    });
+    const active = await handleAction.execute({
+      sessionId: started.session.id,
+      action: "start_after_dark",
+      userId: "user-1",
+    });
+
+    expect(joined.status).toBe("state");
+    if (joined.status !== "state") {
+      throw new Error("Expected state output.");
+    }
+    expect(joined.session.players).toEqual(["user-1", "user-2"]);
+    expect(active.status).toBe("prompt");
+    if (active.status !== "prompt") {
+      throw new Error("Expected prompt output.");
+    }
+    expect(active.session.mode).toBe("after_dark");
+    expect(active.session.phase).toBe("prompt_revealed");
+    expect(active.prompt.type).toBe("after_dark");
+  });
+
   it("handles quick prompt buttons and avoids immediate repeats when alternatives exist", async () => {
     const sessions = new InMemorySessionRepository();
     const sessionIds = new FixedSessionIdGenerator(

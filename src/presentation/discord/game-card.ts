@@ -6,6 +6,8 @@ import {
 } from "discord.js";
 
 import {
+  afterDarkMaxPlayers,
+  afterDarkMode,
   coupleQuestionMaxPlayers,
   coupleQuestionMode,
   currentTruthOrDarePlayer,
@@ -38,6 +40,10 @@ export function buildPromptCard(session: GameSession, prompt: Prompt): GameCard 
 
   if (session.mode === coupleQuestionMode) {
     return buildCoupleQuestionPromptCard(session, prompt);
+  }
+
+  if (session.mode === afterDarkMode) {
+    return buildAfterDarkPromptCard(session, prompt);
   }
 
   if (session.mode === thisOrThatMode) {
@@ -73,14 +79,16 @@ export function buildPrivateAnswerWaitingCard(
   submittedCount: number,
   targetCount: number,
 ): GameCard {
-  const embed = buildCoupleQuestionEmbed(session, prompt).addFields({
+  const embed = buildPrivateAnswerEmbed(session, prompt).addFields({
     name: "Private answers",
     value: `${submittedCount}/${targetCount} submitted.`,
   });
 
   return {
     embeds: [embed],
-    components: buildCoupleQuestionButtons(session.id, false),
+    components: session.mode === afterDarkMode
+      ? buildAfterDarkButtons(session.id, false)
+      : buildCoupleQuestionButtons(session.id, false),
   };
 }
 
@@ -89,7 +97,7 @@ export function buildPrivateAnswerRevealCard(
   prompt: Prompt,
   answers: readonly PrivateAnswerSubmission[],
 ): GameCard {
-  const embed = buildCoupleQuestionEmbed(session, prompt);
+  const embed = buildPrivateAnswerEmbed(session, prompt);
 
   for (const answer of answers) {
     embed.addFields({
@@ -100,8 +108,19 @@ export function buildPrivateAnswerRevealCard(
 
   return {
     embeds: [embed],
-    components: buildCoupleQuestionRevealButtons(session.id, false),
+    components: session.mode === afterDarkMode
+      ? buildAfterDarkRevealButtons(session.id, false)
+      : buildCoupleQuestionRevealButtons(session.id, false),
   };
+}
+
+function buildPrivateAnswerEmbed(
+  session: GameSession,
+  prompt: Prompt,
+): EmbedBuilder {
+  return session.mode === afterDarkMode
+    ? buildAfterDarkEmbed(session, prompt)
+    : buildCoupleQuestionEmbed(session, prompt);
 }
 
 function buildCoupleQuestionPromptCard(
@@ -122,6 +141,40 @@ function buildCoupleQuestionEmbed(
     .setTitle(`${formatPromptType(prompt.type)} - ${formatMood(prompt.mood)}`)
     .setDescription(prompt.text)
     .setColor(0xf4a7bb)
+    .setFooter({
+      text: `Round ${session.recentPromptIds.length} - Intensity ${intensityValue(
+        session.intensity,
+      )} - ${formatPromptSource(prompt.source)}`,
+    });
+
+  if (prompt.followUp !== undefined) {
+    embed.addFields({
+      name: "Follow-up",
+      value: prompt.followUp,
+    });
+  }
+
+  return embed;
+}
+
+function buildAfterDarkPromptCard(
+  session: GameSession,
+  prompt: Prompt,
+): GameCard {
+  return {
+    embeds: [buildAfterDarkEmbed(session, prompt)],
+    components: buildAfterDarkButtons(session.id, false),
+  };
+}
+
+function buildAfterDarkEmbed(
+  session: GameSession,
+  prompt: Prompt,
+): EmbedBuilder {
+  const embed = new EmbedBuilder()
+    .setTitle(`After Dark - ${formatMood(prompt.mood)}`)
+    .setDescription(prompt.text)
+    .setColor(0xc77dff)
     .setFooter({
       text: `Round ${session.recentPromptIds.length} - Intensity ${intensityValue(
         session.intensity,
@@ -301,6 +354,61 @@ function buildCoupleQuestionStateCard(
   };
 }
 
+function buildAfterDarkStateCard(
+  session: GameSession,
+  options: SessionCardOptions,
+): GameCard {
+  const embed = new EmbedBuilder().setColor(0xc77dff).setFooter({
+    text: `Players ${session.players.length}/${afterDarkMaxPlayers} - Intensity ${intensityValue(
+      session.intensity,
+    )}`,
+  });
+
+  if (session.phase === "lobby") {
+    embed
+      .setTitle("After Dark lobby")
+      .setDescription(
+        [
+          `Host: ${mention(session.hostUserId)}`,
+          `Players: ${formatPlayers(session.players)}`,
+        ].join("\n"),
+      );
+
+    if (options.view === "rules") {
+      embed.addFields(
+        {
+          name: "Consent",
+          value:
+            "This mode is warmer and more intimate, but still pressure-free. Start only when every joined player is comfortable.",
+        },
+        {
+          name: "Boundaries",
+          value:
+            "Prompts stay non-explicit, skip is always okay, and private answers reveal only after every joined player submits.",
+        },
+      );
+    }
+
+    return {
+      embeds: [embed],
+      components: buildAfterDarkLobbyButtons(session.id, false),
+    };
+  }
+
+  if (session.currentPrompt !== undefined) {
+    return buildAfterDarkPromptCard(session, session.currentPrompt);
+  }
+
+  embed
+    .setTitle("After Dark")
+    .setDescription("Getting the first intimate prompt ready.");
+
+  return {
+    embeds: [embed],
+    components: buildAfterDarkButtons(session.id, false),
+  };
+}
+
 export function buildSessionStateCard(
   session: GameSession,
   options: SessionCardOptions = {},
@@ -311,6 +419,10 @@ export function buildSessionStateCard(
 
   if (session.mode === coupleQuestionMode) {
     return buildCoupleQuestionStateCard(session, options);
+  }
+
+  if (session.mode === afterDarkMode) {
+    return buildAfterDarkStateCard(session, options);
   }
 
   if (session.mode === thisOrThatMode) {
@@ -539,6 +651,54 @@ function buildCoupleQuestionRevealButtons(
   ];
 }
 
+function buildAfterDarkButtons(
+  sessionId: string,
+  disabled: boolean,
+): ActionRowBuilder<ButtonBuilder>[] {
+  return [
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      gameButton("answer_private", sessionId, "Answer", ButtonStyle.Success, disabled),
+      gameButton("next", sessionId, "Next", ButtonStyle.Primary, disabled),
+      gameButton("skip", sessionId, "Skip", ButtonStyle.Secondary, disabled),
+      gameButton("softer", sessionId, "Softer", ButtonStyle.Secondary, disabled),
+      gameButton("spicier", sessionId, "Warmer", ButtonStyle.Secondary, disabled),
+    ),
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      gameButton("end", sessionId, "End", ButtonStyle.Danger, disabled),
+    ),
+  ];
+}
+
+function buildAfterDarkRevealButtons(
+  sessionId: string,
+  disabled: boolean,
+): ActionRowBuilder<ButtonBuilder>[] {
+  return [
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      gameButton("next", sessionId, "Next", ButtonStyle.Primary, disabled),
+      gameButton("skip", sessionId, "Skip", ButtonStyle.Secondary, disabled),
+      gameButton("softer", sessionId, "Softer", ButtonStyle.Secondary, disabled),
+      gameButton("spicier", sessionId, "Warmer", ButtonStyle.Secondary, disabled),
+      gameButton("end", sessionId, "End", ButtonStyle.Danger, disabled),
+    ),
+  ];
+}
+
+function buildAfterDarkLobbyButtons(
+  sessionId: string,
+  disabled: boolean,
+): ActionRowBuilder<ButtonBuilder>[] {
+  return [
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      gameButton("join", sessionId, "Join", ButtonStyle.Success, disabled),
+      gameButton("leave", sessionId, "Leave", ButtonStyle.Secondary, disabled),
+      gameButton("start_after_dark", sessionId, "Start", ButtonStyle.Primary, disabled),
+      gameButton("rules", sessionId, "Rules", ButtonStyle.Secondary, disabled),
+      gameButton("end", sessionId, "End", ButtonStyle.Danger, disabled),
+    ),
+  ];
+}
+
 function buildThisOrThatLobbyButtons(
   sessionId: string,
   disabled: boolean,
@@ -711,6 +871,7 @@ function formatPromptType(type: PromptType): string {
     dare: "Dare",
     couple_question: "Couple Question",
     this_or_that: "This or That",
+    after_dark: "After Dark",
   } satisfies Record<PromptType, string>;
 
   return labels[type];

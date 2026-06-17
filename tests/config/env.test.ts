@@ -35,7 +35,8 @@ describe("loadEnv", () => {
       timeoutMs: 30000,
       maxAttempts: 3,
       maxTokens: 1800,
-      temperature: 0.7,
+      temperature: 1.15,
+      maxContextTokens: 16000,
       thinkingMode: "auto",
     });
   });
@@ -48,7 +49,8 @@ describe("loadEnv", () => {
       AI_TIMEOUT_MS: "15000",
       AI_MAX_ATTEMPTS: "2",
       AI_MAX_TOKENS: "900",
-      AI_TEMPERATURE: "0.9",
+      AI_TEMPERATURE: "1.3",
+      AI_MAX_CONTEXT_TOKENS: "4096",
       AI_THINKING_MODE: "disabled",
     });
 
@@ -58,7 +60,8 @@ describe("loadEnv", () => {
       timeoutMs: 15000,
       maxAttempts: 2,
       maxTokens: 900,
-      temperature: 0.9,
+      temperature: 1.3,
+      maxContextTokens: 4096,
       thinkingMode: "disabled",
     });
   });

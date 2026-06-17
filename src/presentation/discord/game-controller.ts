@@ -25,7 +25,11 @@ import type {
 } from "../../application/use-cases/start-game-session";
 import type { RefillPromptQueueUseCase } from "../../application/use-cases/refill-prompt-queue";
 import { gameModes, moods } from "../../domain/entities/prompt";
-import { coupleQuestionMode, type GameSession } from "../../domain/entities/game-session";
+import {
+  afterDarkMode,
+  coupleQuestionMode,
+  type GameSession,
+} from "../../domain/entities/game-session";
 import { createUserId } from "../../domain/value-objects/ids";
 import type { Logger } from "../../infrastructure/logging/logger";
 import { parseGameButtonId } from "./button-ids";
@@ -293,9 +297,9 @@ export class DiscordGameController {
 
     const session = output.session;
 
-    if (session.mode !== coupleQuestionMode || session.currentPrompt === undefined) {
+    if (!supportsPrivateAnswers(session) || session.currentPrompt === undefined) {
       await interaction.reply({
-        content: "Private answers are available on Couple Questions prompts.",
+        content: "Private answers are available on Couple Questions and After Dark prompts.",
         flags: MessageFlags.Ephemeral,
       });
       return;
@@ -363,7 +367,7 @@ export class DiscordGameController {
     const actorUserId = createUserId(interaction.user.id);
 
     if (
-      session.mode !== coupleQuestionMode ||
+      !supportsPrivateAnswers(session) ||
       prompt === undefined ||
       prompt.id !== parsed.promptId
     ) {
@@ -446,6 +450,7 @@ function loadingLabelForAction(action: GameAction): string {
     leave: "Leaving the lobby...",
     start_tod: "Starting Truth or Dare...",
     start_couple_question: "Starting Couple Questions...",
+    start_after_dark: "Starting After Dark...",
     start_this_or_that: "Starting This or That...",
     rules: "Opening the rules...",
     set_context_meet: "Setting dares for in-person play...",
@@ -455,6 +460,7 @@ function loadingLabelForAction(action: GameAction): string {
     random: "Flipping between truth and dare...",
     couple_question: "Finding a couple question...",
     this_or_that: "Finding a this-or-that...",
+    after_dark: "Finding an After Dark prompt...",
     next: "Getting the next prompt ready...",
     skip: "Skipping to another prompt...",
     softer: "Making it softer...",
@@ -522,7 +528,15 @@ function formatModeName(session: GameSession): string {
     return "Couple Questions";
   }
 
+  if (session.mode === "after_dark") {
+    return "After Dark";
+  }
+
   return "This game";
+}
+
+function supportsPrivateAnswers(session: GameSession): boolean {
+  return session.mode === coupleQuestionMode || session.mode === afterDarkMode;
 }
 
 function parseStartOptions(interaction: ChatInputCommandInteraction) {

@@ -1,0 +1,4 @@
+interface:
+  display_name: "AI Engineer"
+  short_description: "Evaluate and improve CoupleGame AI prompts."
+  default_prompt: "Use the AI Engineer skill to audit, validate, and improve CoupleGame AI prompt behavior."

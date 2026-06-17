@@ -54,6 +54,26 @@ describe("game button ids", () => {
     });
   });
 
+  it("round-trips After Dark session buttons", () => {
+    const startButtonId = createGameButtonId(
+      "start_after_dark",
+      "019ed5c9-03f7-7dc7-8660-f41abdeca21d",
+    );
+    const modeButtonId = createGameButtonId(
+      "after_dark",
+      "019ed5c9-03f7-7dc7-8660-f41abdeca21d",
+    );
+
+    expect(parseGameButtonId(startButtonId)).toEqual({
+      action: "start_after_dark",
+      sessionId: "019ed5c9-03f7-7dc7-8660-f41abdeca21d",
+    });
+    expect(parseGameButtonId(modeButtonId)).toEqual({
+      action: "after_dark",
+      sessionId: "019ed5c9-03f7-7dc7-8660-f41abdeca21d",
+    });
+  });
+
   it("round-trips This or That pick buttons", () => {
     const buttonId = createGameButtonId(
       "pick_right",

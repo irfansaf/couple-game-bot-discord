@@ -13,7 +13,7 @@ The complete MVP game-mode design lives in `docs/mvp-game-designs.md`. Use it as
 ## MVP Goals
 
 - Make `/game start` create a simple date-night session in Discord with a lightweight lobby.
-- Support Truth or Dare, Couple Questions, and This or That using reviewed static question packs. Truth and Dare are prompt choices inside the full Truth or Dare session, not standalone game modes.
+- Support Truth or Dare, Couple Questions, This or That, and After Dark using reviewed static question packs. Truth and Dare are prompt choices inside the full Truth or Dare session, not standalone game modes.
 - Present each prompt in a Discord embed with short button controls.
 - Keep controls mode-specific. For example, a Truth or Dare session should show Truth/Dare/turn controls, not every game mode button.
 - Keep the tone cozy, playful, romantic, deep, funny, and flirty-safe.
@@ -59,6 +59,7 @@ This slice should prove the bot feels like a game host before adding AI.
 - Mode-specific button layouts so each game feels like its own loop.
 - Truth or Dare, Couple Questions, and This or That controls should follow `docs/mvp-game-designs.md`.
 - Couple Questions uses a lobby and can start with 1 or more joined players.
+- After Dark uses a consent lobby and keeps adult-intimate prompts non-explicit, pressure-free, and skippable.
 - Advanced This or That uses a lobby plus hidden Left/Right votes, revealing choices only after all joined players vote.
 
 ### P1 - AI Prompt Generation
@@ -94,7 +95,7 @@ This slice should prove the bot feels like a game host before adding AI.
 2. Bot creates a session with defaults or the selected mode, mood, and intensity options.
 3. Bot posts a warm game lobby or game embed with contextual controls.
 4. Players join if the mode uses a lobby, then the host starts.
-5. Joined players use the mode-specific controls for the chosen game: Truth or Dare lobby/turn controls, Couple Questions private answer/depth controls, or This or That pick controls.
+5. Joined players use the mode-specific controls for the chosen game: Truth or Dare lobby/turn controls, Couple Questions private answer/depth controls, This or That pick controls, or After Dark intimate prompt controls.
 
 ### Choose Prompt Type
 
