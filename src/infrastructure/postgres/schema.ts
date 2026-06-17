@@ -11,6 +11,7 @@ export const gameSessions = pgTable("game_sessions", {
   mood: text("mood").notNull(),
   intensity: integer("intensity").notNull(),
   recentPromptIds: jsonb("recent_prompt_ids").$type<string[]>().notNull(),
+  recentPromptTexts: jsonb("recent_prompt_texts").$type<string[]>().notNull().default([]),
   promptQueue: jsonb("prompt_queue").$type<unknown[]>().notNull().default([]),
   promptQueueType: text("prompt_queue_type"),
   currentPrompt: jsonb("current_prompt").$type<unknown>(),

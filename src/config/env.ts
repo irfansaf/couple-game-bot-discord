@@ -16,7 +16,13 @@ const environmentSchema = z.object({
     .default("https://api.openai.com/v1"),
   AI_API_KEY: z.string().trim().default(""),
   AI_MODEL: z.string().trim().default(""),
-  AI_TIMEOUT_MS: z.coerce.number().int().positive().default(12000),
+  AI_TIMEOUT_MS: z.coerce.number().int().positive().default(30000),
+  AI_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(3).default(3),
+  AI_MAX_TOKENS: z.coerce.number().int().positive().default(1800),
+  AI_TEMPERATURE: z.coerce.number().min(0).max(2).default(0.7),
+  AI_THINKING_MODE: z
+    .enum(["auto", "disabled", "enabled", "provider_default"])
+    .default("auto"),
   DATABASE_URL: z
     .string()
     .url("DATABASE_URL must be a valid Postgres URL.")
@@ -44,12 +50,20 @@ export interface AiProviderConfig {
   readonly apiKey: string;
   readonly model: string;
   readonly timeoutMs: number;
+  readonly maxAttempts: number;
+  readonly maxTokens: number;
+  readonly temperature: number;
+  readonly thinkingMode: "auto" | "disabled" | "enabled" | "provider_default";
 }
 
 export interface DisabledAiConfig {
   readonly enabled: false;
   readonly baseUrl: string;
   readonly timeoutMs: number;
+  readonly maxAttempts: number;
+  readonly maxTokens: number;
+  readonly temperature: number;
+  readonly thinkingMode: "auto" | "disabled" | "enabled" | "provider_default";
 }
 
 export type AiConfig = AiProviderConfig | DisabledAiConfig;
@@ -90,11 +104,19 @@ export function loadEnv(
             apiKey: parsed.AI_API_KEY,
             model: parsed.AI_MODEL,
             timeoutMs: parsed.AI_TIMEOUT_MS,
+            maxAttempts: parsed.AI_MAX_ATTEMPTS,
+            maxTokens: parsed.AI_MAX_TOKENS,
+            temperature: parsed.AI_TEMPERATURE,
+            thinkingMode: parsed.AI_THINKING_MODE,
           }
         : {
             enabled: false,
             baseUrl: parsed.AI_BASE_URL,
             timeoutMs: parsed.AI_TIMEOUT_MS,
+            maxAttempts: parsed.AI_MAX_ATTEMPTS,
+            maxTokens: parsed.AI_MAX_TOKENS,
+            temperature: parsed.AI_TEMPERATURE,
+            thinkingMode: parsed.AI_THINKING_MODE,
           },
     database: {
       url: parsed.DATABASE_URL,
@@ -118,6 +140,10 @@ export function summarizeConfig(config: RuntimeConfig): Record<string, unknown> 
       model: config.ai.enabled ? config.ai.model : null,
       apiKeyConfigured: config.ai.enabled,
       timeoutMs: config.ai.timeoutMs,
+      maxAttempts: config.ai.maxAttempts,
+      maxTokens: config.ai.maxTokens,
+      temperature: config.ai.temperature,
+      thinkingMode: config.ai.thinkingMode,
     },
     database: {
       urlConfigured: config.database.url.length > 0,

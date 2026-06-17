@@ -32,6 +32,34 @@ describe("loadEnv", () => {
       enabled: true,
       apiKey: "ai-key",
       model: "deepseek-chat",
+      timeoutMs: 30000,
+      maxAttempts: 3,
+      maxTokens: 1800,
+      temperature: 0.7,
+      thinkingMode: "auto",
+    });
+  });
+
+  it("allows AI provider tuning for fast prompt generation", () => {
+    const config = loadEnv({
+      ...baseEnv,
+      AI_API_KEY: "ai-key",
+      AI_MODEL: "deepseek-v4-flash",
+      AI_TIMEOUT_MS: "15000",
+      AI_MAX_ATTEMPTS: "2",
+      AI_MAX_TOKENS: "900",
+      AI_TEMPERATURE: "0.9",
+      AI_THINKING_MODE: "disabled",
+    });
+
+    expect(config.ai).toMatchObject({
+      enabled: true,
+      model: "deepseek-v4-flash",
+      timeoutMs: 15000,
+      maxAttempts: 2,
+      maxTokens: 900,
+      temperature: 0.9,
+      thinkingMode: "disabled",
     });
   });
 

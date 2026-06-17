@@ -9,7 +9,7 @@ import { createDiscordClient } from "./infrastructure/discord/client";
 import { registerGuildCommands } from "./infrastructure/discord/register-commands";
 import { AiFirstPromptCatalog } from "./infrastructure/content/ai-first-prompt-catalog";
 import { StaticPromptCatalog } from "./infrastructure/content/static-prompt-catalog";
-import { ConsoleLogger } from "./infrastructure/logging/logger";
+import { PinoLogger } from "./infrastructure/logging/logger";
 import { createPostgresConnection } from "./infrastructure/postgres/client";
 import { PostgresSessionIdGenerator } from "./infrastructure/postgres/postgres-session-id-generator";
 import { PostgresSessionRepository } from "./infrastructure/postgres/postgres-session-repository";
@@ -17,13 +17,13 @@ import { DiscordGameController } from "./presentation/discord/game-controller";
 import { gameStartCommand } from "./presentation/discord/game-command";
 
 export function createApp(config: RuntimeConfig) {
-  const logger = new ConsoleLogger();
+  const logger = new PinoLogger(config.logLevel);
   const postgres = createPostgresConnection(config.database);
   const sessions = new PostgresSessionRepository(postgres);
   const sessionIds = new PostgresSessionIdGenerator(postgres);
   const staticPromptCatalog = new StaticPromptCatalog();
   const questionGenerator = config.ai.enabled
-    ? new OpenAiCompatibleQuestionGenerator(config.ai)
+    ? new OpenAiCompatibleQuestionGenerator(config.ai, undefined, logger)
     : null;
   const promptCatalog =
     questionGenerator === null

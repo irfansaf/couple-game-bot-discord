@@ -37,6 +37,10 @@ export class PromptQueueRefiller {
           ...session.recentPromptIds,
           ...session.promptQueue.map((prompt) => prompt.id),
         ] satisfies readonly PromptId[],
+        recentPromptTexts: [
+          ...session.recentPromptTexts,
+          ...session.promptQueue.map((prompt) => prompt.text),
+        ],
       },
       missingPromptCount,
     );

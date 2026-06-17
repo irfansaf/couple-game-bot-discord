@@ -20,12 +20,24 @@ For DeepSeek-compatible generation, set:
 ```env
 AI_BASE_URL=https://api.deepseek.com
 AI_API_KEY=your-key
-AI_MODEL=deepseek-chat
+AI_MODEL=deepseek-v4-flash
+AI_TIMEOUT_MS=30000
+AI_MAX_ATTEMPTS=3
+AI_MAX_TOKENS=1800
+AI_TEMPERATURE=0.7
+AI_THINKING_MODE=auto
+LOG_LEVEL=debug
 ```
 
 When AI is configured, the game loop tries AI-generated prompts first and falls back to reviewed static prompts if the provider fails, times out, or returns invalid/unsafe content.
 
 The bot keeps a small prompt queue per session. It fills the queue in batches, shows the first prompt, and refills in the background when the queue gets low so most button clicks feel instant.
+
+Each session stores recent prompt IDs and recent prompt text. AI generation receives the recent text history so it can avoid repeating the same idea, while static fallback avoids recently used static IDs.
+
+AI requests are logged through Pino. Use `LOG_LEVEL=debug` while testing providers to see request metadata, attempt number, timeout duration, HTTP status, validation failures, and fallback context. Logs redact credentials and avoid private answer content.
+
+For DeepSeek, `AI_THINKING_MODE=auto` sends non-thinking requests by default because this bot needs fast JSON prompts more than long reasoning. Use `deepseek-v4-flash` for the quickest game UX; reserve Pro for later features that need heavier reasoning.
 
 Start a session in Discord with:
 

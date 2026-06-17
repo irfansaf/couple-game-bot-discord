@@ -9,6 +9,10 @@ const config = {
   apiKey: "test-key",
   model: "test-model",
   timeoutMs: 1000,
+  maxAttempts: 3,
+  maxTokens: 1800,
+  temperature: 0.7,
+  thinkingMode: "auto",
 } as const;
 
 const input = {
@@ -129,5 +133,140 @@ describe("OpenAiCompatibleQuestionGenerator", () => {
 
     expect(prompts).toHaveLength(2);
     expect(prompts.map((prompt) => prompt.source)).toEqual(["ai", "ai"]);
+  });
+
+  it("treats an empty follow-up as omitted", async () => {
+    globalThis.fetch = Object.assign(async () =>
+      new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  questions: [
+                    {
+                      type: "truth",
+                      mood: "cozy",
+                      intensity: 1,
+                      question: "What is one tiny thing you appreciated today?",
+                      followUp: "",
+                      safetyNotes: [],
+                    },
+                  ],
+                }),
+              },
+            },
+          ],
+        }),
+        { status: 200 },
+      ), originalFetch);
+
+    const prompt = await new OpenAiCompatibleQuestionGenerator(config).generate(input);
+
+    expect(prompt.followUp).toBeUndefined();
+  });
+
+  it("retries invalid AI responses before returning prompts", async () => {
+    let calls = 0;
+
+    globalThis.fetch = Object.assign(async () => {
+      calls += 1;
+
+      if (calls === 1) {
+        return new Response(
+          JSON.stringify({
+            choices: [
+              {
+                message: {
+                  content: JSON.stringify({
+                    questions: [
+                      {
+                        type: "truth",
+                        mood: "cozy",
+                        intensity: 1,
+                        question: "",
+                        safetyNotes: [],
+                      },
+                    ],
+                  }),
+                },
+              },
+            ],
+          }),
+          { status: 200 },
+        );
+      }
+
+      return new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  questions: [
+                    {
+                      type: "truth",
+                      mood: "cozy",
+                      intensity: 1,
+                      question: "What is one small comfort you noticed today?",
+                      safetyNotes: [],
+                    },
+                  ],
+                }),
+              },
+            },
+          ],
+        }),
+        { status: 200 },
+      );
+    }, originalFetch);
+
+    const prompt = await new OpenAiCompatibleQuestionGenerator(config).generate(input);
+
+    expect(calls).toBe(2);
+    expect(prompt.text).toBe("What is one small comfort you noticed today?");
+  });
+
+  it("disables DeepSeek thinking mode by default for fast JSON prompts", async () => {
+    let capturedBody: unknown;
+
+    globalThis.fetch = Object.assign(async (_url: URL | RequestInfo, init?: RequestInit) => {
+      capturedBody = JSON.parse(String(init?.body)) as unknown;
+
+      return new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  questions: [
+                    {
+                      type: "truth",
+                      mood: "cozy",
+                      intensity: 1,
+                      question: "What is one tiny thing you appreciated today?",
+                      safetyNotes: [],
+                    },
+                  ],
+                }),
+              },
+            },
+          ],
+        }),
+        { status: 200 },
+      );
+    }, originalFetch);
+
+    await new OpenAiCompatibleQuestionGenerator({
+      ...config,
+      baseUrl: "https://api.deepseek.com",
+      model: "deepseek-v4-flash",
+    }).generate(input);
+
+    expect(capturedBody).toMatchObject({
+      model: "deepseek-v4-flash",
+      max_tokens: 1800,
+      thinking: { type: "disabled" },
+    });
   });
 });

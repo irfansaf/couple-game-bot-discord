@@ -1,0 +1,1 @@
+ALTER TABLE "game_sessions" ADD COLUMN "recent_prompt_texts" jsonb DEFAULT '[]'::jsonb NOT NULL;

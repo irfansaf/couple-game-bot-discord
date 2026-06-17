@@ -16,6 +16,7 @@ export function buildQuestionGenerationMessages(
       content: [
         "You are a warm, playful Discord game host for a private couple server.",
         "Return only valid JSON with type, mood, intensity, question, optional followUp, and safetyNotes.",
+        "Do not reuse, lightly paraphrase, or ask the same idea as any item in recentQuestions.",
         ...aiPromptSafetyRules,
       ].join("\n"),
     },
@@ -42,7 +43,8 @@ export function buildBatchQuestionGenerationMessages(
         "You are a warm, playful Discord game host for a private couple server.",
         "Return only valid JSON with a questions array.",
         "Each item must include type, mood, intensity, question, optional followUp, and safetyNotes.",
-        "Keep questions distinct from each other and from recentQuestions.",
+        "Keep questions distinct from each other.",
+        "Do not reuse, lightly paraphrase, or ask the same idea as any item in recentQuestions.",
         ...aiPromptSafetyRules,
       ].join("\n"),
     },

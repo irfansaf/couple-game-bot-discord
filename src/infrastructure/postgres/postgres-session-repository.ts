@@ -44,6 +44,7 @@ const sessionRowSchema = z.object({
   mood: z.enum(moods),
   intensity: z.number().int().min(1).max(3),
   recentPromptIds: z.array(z.string().min(1)),
+  recentPromptTexts: z.array(z.string().min(1)),
   promptQueue: z.array(storedPromptSchema),
   promptQueueType: z.enum(promptTypes).nullable(),
   currentPrompt: storedPromptSchema.nullable(),
@@ -72,6 +73,7 @@ export class PostgresSessionRepository implements SessionRepository {
         mood: session.mood,
         intensity: intensityValue(session.intensity),
         recentPromptIds: [...session.recentPromptIds],
+        recentPromptTexts: [...session.recentPromptTexts],
         promptQueue: session.promptQueue.map(toStoredPrompt),
         promptQueueType: session.promptQueueType ?? null,
         currentPrompt: session.currentPrompt === undefined
@@ -92,6 +94,7 @@ export class PostgresSessionRepository implements SessionRepository {
           mood: session.mood,
           intensity: intensityValue(session.intensity),
           recentPromptIds: [...session.recentPromptIds],
+          recentPromptTexts: [...session.recentPromptTexts],
           promptQueue: session.promptQueue.map(toStoredPrompt),
           promptQueueType: session.promptQueueType ?? null,
           currentPrompt: session.currentPrompt === undefined
@@ -132,6 +135,7 @@ function toDomain(row: SessionRow): GameSession {
     mood: parsed.mood,
     intensity: createIntensity(parsed.intensity),
     recentPromptIds: parsed.recentPromptIds.map(createPromptId),
+    recentPromptTexts: parsed.recentPromptTexts,
     promptQueue: parsed.promptQueue.map(fromStoredPrompt),
     promptQueueType: parsed.promptQueueType ?? undefined,
     currentPrompt: parsed.currentPrompt === null

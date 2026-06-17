@@ -12,6 +12,7 @@ const selectionInput = {
   mood: "cozy",
   intensity: createIntensity(1),
   recentPromptIds: [],
+  recentPromptTexts: [],
 } as const;
 
 describe("AiFirstPromptCatalog", () => {
@@ -98,6 +99,45 @@ describe("AiFirstPromptCatalog", () => {
 
     expect(prompts).toHaveLength(1);
     expect(prompts[0]?.source).toBe("ai");
+  });
+
+  it("passes recent prompt texts to the AI generator for uniqueness", async () => {
+    let recentQuestions: readonly string[] = [];
+    const catalog = new AiFirstPromptCatalog(
+      {
+        generate: async () => {
+          throw new Error("unused");
+        },
+        generateBatch: async (input) => {
+          recentQuestions = input.recentQuestions;
+
+          return [
+            {
+              id: createPromptId("ai-batch-truth-2"),
+              type: "truth",
+              mood: "cozy",
+              intensity: createIntensity(1),
+              text: "What is a brand-new thing you appreciate today?",
+              safetyNotes: [],
+              source: "ai",
+            },
+          ];
+        },
+      } satisfies QuestionGenerator,
+      new StaticPromptCatalog(),
+      new SilentLogger(),
+    );
+
+    await catalog.selectBatch(
+      {
+        ...selectionInput,
+        recentPromptIds: [createPromptId("old-id")],
+        recentPromptTexts: ["What is one old repeated question?"],
+      },
+      1,
+    );
+
+    expect(recentQuestions).toEqual(["What is one old repeated question?"]);
   });
 });
 

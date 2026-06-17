@@ -33,6 +33,7 @@ describe("static game loop", () => {
     expect(output.session.id).toBe("019ed5c9-03f7-7dc7-8660-f41abdeca21d");
     expect(output.session.status).toBe("active");
     expect(output.session.recentPromptIds).toEqual([output.prompt.id]);
+    expect(output.session.recentPromptTexts).toEqual([output.prompt.text]);
     expect(output.session.promptQueue.length).toBeGreaterThan(0);
     expect(await sessions.findById(output.session.id)).toEqual(output.session);
   });
@@ -228,6 +229,7 @@ describe("static game loop", () => {
     }
     expect(truth.prompt.type).toBe("truth");
     expect(truth.session.phase).toBe("prompt_revealed");
+    expect(truth.session.recentPromptTexts).toContain(truth.prompt.text);
     expect(truth.session.promptQueue.length).toBeGreaterThan(0);
 
     const answered = await handleAction.execute({

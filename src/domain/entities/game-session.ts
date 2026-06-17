@@ -28,6 +28,7 @@ export interface GameSession {
   readonly mood: Mood;
   readonly intensity: Intensity;
   readonly recentPromptIds: readonly PromptId[];
+  readonly recentPromptTexts: readonly string[];
   readonly promptQueue: readonly Prompt[];
   readonly promptQueueType?: PromptType | undefined;
   readonly currentPrompt?: Prompt | undefined;
@@ -62,6 +63,7 @@ export function createGameSession(input: CreateGameSessionInput): GameSession {
     mood: input.mood,
     intensity: input.intensity,
     recentPromptIds: [],
+    recentPromptTexts: [],
     promptQueue: [],
     currentTurnIndex: 0,
     phase,
@@ -72,14 +74,18 @@ export function createGameSession(input: CreateGameSessionInput): GameSession {
 
 export function recordPrompt(
   session: GameSession,
-  promptId: PromptId,
+  prompt: Prompt,
   maxRecentPrompts = 20,
 ): GameSession {
   if (session.status !== "active") {
     throw new DomainValidationError("Cannot record a prompt for an ended session.");
   }
 
-  const recentPromptIds = [promptId, ...session.recentPromptIds].slice(
+  const recentPromptIds = [prompt.id, ...session.recentPromptIds].slice(
+    0,
+    maxRecentPrompts,
+  );
+  const recentPromptTexts = [prompt.text, ...session.recentPromptTexts].slice(
     0,
     maxRecentPrompts,
   );
@@ -87,6 +93,7 @@ export function recordPrompt(
   return {
     ...session,
     recentPromptIds,
+    recentPromptTexts,
   };
 }
 
@@ -138,7 +145,7 @@ export function dequeuePrompt(session: GameSession): DequeuedPrompt | null {
         promptQueueType: prompt.type,
         phase: "prompt_revealed",
       },
-      prompt.id,
+      prompt,
     ),
   };
 }

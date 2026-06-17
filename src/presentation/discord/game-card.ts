@@ -37,7 +37,7 @@ export function buildPromptCard(session: GameSession, prompt: Prompt): GameCard 
     .setFooter({
       text: `Round ${session.recentPromptIds.length} - Intensity ${intensityValue(
         session.intensity,
-      )}`,
+      )} - ${formatPromptSource(prompt.source)}`,
     });
 
   if (prompt.followUp !== undefined) {
@@ -186,7 +186,9 @@ function buildTruthOrDarePromptCard(
     .setFooter({
       text: `Turn ${session.currentTurnIndex + 1} - Round ${
         session.recentPromptIds.length
-      } - Intensity ${intensityValue(session.intensity)}`,
+      } - Intensity ${intensityValue(session.intensity)} - ${formatPromptSource(
+        prompt.source,
+      )}`,
     });
 
   if (prompt.followUp !== undefined) {
@@ -366,6 +368,10 @@ function formatMood(mood: Mood): string {
   } satisfies Record<Mood, string>;
 
   return labels[mood];
+}
+
+function formatPromptSource(source: Prompt["source"]): string {
+  return source === "ai" ? "AI" : "Static fallback";
 }
 
 function formatPlayers(players: readonly string[]): string {

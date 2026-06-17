@@ -7,6 +7,7 @@ export interface PromptSelectionInput {
   readonly mood: Mood;
   readonly intensity: Intensity;
   readonly recentPromptIds: readonly PromptId[];
+  readonly recentPromptTexts: readonly string[];
 }
 
 export interface PromptCatalog {
