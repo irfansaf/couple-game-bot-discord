@@ -5,15 +5,23 @@ import {
   currentTruthOrDarePlayer,
   dequeuePrompt,
   endGameSession,
+  joinThisOrThatSession,
   joinTruthOrDareSession,
+  leaveThisOrThatSession,
   leaveTruthOrDareSession,
+  recordThisOrThatVote,
   setTruthOrDarePlayContext,
   shiftGameSessionIntensity,
+  startThisOrThatSession,
   startTruthOrDareSession,
+  thisOrThatMaxPlayers,
+  thisOrThatMinPlayers,
+  thisOrThatMode,
   truthOrDareMaxPlayers,
   truthOrDareMinPlayers,
   truthOrDareMode,
   type GameSession,
+  type ThisOrThatChoice,
   type TruthOrDareChoice,
 } from "../../domain/entities/game-session";
 import type { GameMode, Prompt } from "../../domain/entities/prompt";
@@ -25,6 +33,7 @@ export const gameActions = [
   "join",
   "leave",
   "start_tod",
+  "start_this_or_that",
   "rules",
   "set_context_meet",
   "set_context_e_meet",
@@ -37,6 +46,9 @@ export const gameActions = [
   "skip",
   "softer",
   "spicier",
+  "deeper",
+  "pick_left",
+  "pick_right",
   "answered",
   "done",
   "alternative_dare",
@@ -73,6 +85,11 @@ export type HandleGameActionOutput =
       readonly status: "state";
       readonly session: GameSession;
       readonly view?: "rules";
+    }
+  | {
+      readonly status: "acknowledged";
+      readonly session: GameSession;
+      readonly message: string;
     }
   | {
       readonly status: "blocked";
@@ -124,6 +141,22 @@ export class HandleGameActionUseCase {
 
     if (session.mode === truthOrDareMode) {
       return this.handleTruthOrDareAction(session, input);
+    }
+
+    if (session.mode === thisOrThatMode) {
+      return this.handleThisOrThatAction(session, input);
+    }
+
+    if (isTruthOrDareOnlyAction(input.action)) {
+      return { status: "blocked", reason: "wrong_phase", session };
+    }
+
+    if (input.action === thisOrThatMode) {
+      const nextSession = changeGameSessionMode(session, thisOrThatMode);
+
+      await this.sessions.save(nextSession);
+
+      return { status: "state", session: nextSession };
     }
 
     const nextSession = applyPromptGameAction(session, input.action);
@@ -310,6 +343,120 @@ export class HandleGameActionUseCase {
     return { status: "blocked", reason: "wrong_phase", session };
   }
 
+  private async handleThisOrThatAction(
+    session: GameSession,
+    input: HandleGameActionInput,
+  ): Promise<HandleGameActionOutput> {
+    const actorUserId = createUserId(input.userId);
+
+    if (input.action === "rules") {
+      return { status: "state", session, view: "rules" };
+    }
+
+    if (input.action === "join") {
+      if (session.phase !== "lobby") {
+        return { status: "blocked", reason: "not_in_lobby", session };
+      }
+
+      if (session.players.includes(actorUserId)) {
+        return { status: "blocked", reason: "already_joined", session };
+      }
+
+      if (session.players.length >= thisOrThatMaxPlayers) {
+        return { status: "blocked", reason: "session_full", session };
+      }
+
+      const joinedSession = joinThisOrThatSession(session, actorUserId);
+
+      await this.sessions.save(joinedSession);
+
+      return { status: "state", session: joinedSession };
+    }
+
+    if (input.action === "leave") {
+      if (!session.players.includes(actorUserId)) {
+        return { status: "blocked", reason: "not_a_player", session };
+      }
+
+      if (session.phase !== "lobby") {
+        return { status: "blocked", reason: "not_in_lobby", session };
+      }
+
+      const leftSession = leaveThisOrThatSession(session, actorUserId, input.now);
+
+      await this.sessions.save(leftSession);
+
+      return leftSession.status === "ended"
+        ? { status: "ended", session: leftSession }
+        : { status: "state", session: leftSession };
+    }
+
+    if (input.action === "start_this_or_that") {
+      if (session.hostUserId !== actorUserId) {
+        return { status: "blocked", reason: "not_host", session };
+      }
+
+      if (session.phase !== "lobby") {
+        return { status: "blocked", reason: "not_in_lobby", session };
+      }
+
+      if (session.players.length < thisOrThatMinPlayers) {
+        return { status: "blocked", reason: "not_enough_players", session };
+      }
+
+      return this.revealThisOrThatPrompt(startThisOrThatSession(session));
+    }
+
+    if (input.action === "next") {
+      if (session.phase !== "revealed") {
+        return { status: "blocked", reason: "wrong_phase", session };
+      }
+
+      return this.revealThisOrThatPrompt(session);
+    }
+
+    if (input.action === "skip") {
+      if (session.phase !== "voting" && session.phase !== "revealed") {
+        return { status: "blocked", reason: "wrong_phase", session };
+      }
+
+      return this.revealThisOrThatPrompt(session);
+    }
+
+    if (input.action === "softer" || input.action === "spicier") {
+      if (session.phase !== "voting" && session.phase !== "revealed") {
+        return { status: "blocked", reason: "wrong_phase", session };
+      }
+
+      return this.revealThisOrThatPrompt(
+        shiftGameSessionIntensity(session, input.action),
+      );
+    }
+
+    if (input.action === "pick_left" || input.action === "pick_right") {
+      if (!session.players.includes(actorUserId)) {
+        return { status: "blocked", reason: "not_a_player", session };
+      }
+
+      if (session.phase !== "voting") {
+        return { status: "blocked", reason: "wrong_phase", session };
+      }
+
+      const choice = thisOrThatChoiceFromAction(input.action);
+      const votedSession = recordThisOrThatVote(session, actorUserId, choice);
+
+      await this.sessions.save(votedSession);
+
+      return {
+        status: "acknowledged",
+        session: votedSession,
+        message: thisOrThatPickMessage(choice, votedSession),
+      };
+    }
+
+    return { status: "blocked", reason: "wrong_phase", session };
+  }
+
   private async revealTruthOrDarePrompt(
     session: GameSession,
     promptType: TruthOrDareChoice,
@@ -318,6 +465,27 @@ export class HandleGameActionUseCase {
     const queuedSession = selectedSession.promptQueue.length === 0
       ? await this.queueRefiller.fillToTarget(selectedSession)
       : selectedSession;
+    const dequeued = dequeuePrompt(queuedSession);
+
+    if (dequeued === null) {
+      return { status: "missing_prompt", session: queuedSession };
+    }
+
+    await this.sessions.save(dequeued.session);
+
+    return {
+      status: "prompt",
+      session: dequeued.session,
+      prompt: dequeued.prompt,
+    };
+  }
+
+  private async revealThisOrThatPrompt(
+    session: GameSession,
+  ): Promise<HandleGameActionOutput> {
+    const queuedSession = session.promptQueue.length === 0
+      ? await this.queueRefiller.fillToTarget(session)
+      : session;
     const dequeued = dequeuePrompt(queuedSession);
 
     if (dequeued === null) {
@@ -341,20 +509,18 @@ function applyPromptGameAction(session: GameSession, action: GameAction): GameSe
     return changeGameSessionMode(session, mode);
   }
 
-  if (action === "softer" || action === "spicier") {
-    return shiftGameSessionIntensity(session, action);
+  if (action === "softer" || action === "spicier" || action === "deeper") {
+    return shiftGameSessionIntensity(
+      session,
+      action === "softer" ? "softer" : "spicier",
+    );
   }
 
   return session;
 }
 
 export function gameActionToMode(action: GameAction): GameMode | null {
-  if (
-    action === "truth" ||
-    action === "dare" ||
-    action === "couple_question" ||
-    action === "this_or_that"
-  ) {
+  if (action === "couple_question" || action === "this_or_that") {
     return action;
   }
 
@@ -367,4 +533,42 @@ function isCurrentTurnActor(session: GameSession, userId: string): boolean {
 
 function randomTruthOrDareChoice(): TruthOrDareChoice {
   return Math.random() < 0.5 ? "truth" : "dare";
+}
+
+function isTruthOrDareOnlyAction(action: GameAction): boolean {
+  return (
+    action === "join" ||
+    action === "leave" ||
+    action === "start_tod" ||
+    action === "start_this_or_that" ||
+    action === "rules" ||
+    action === "set_context_meet" ||
+    action === "set_context_e_meet" ||
+    action === "truth" ||
+    action === "dare" ||
+    action === "random" ||
+    action === "answered" ||
+    action === "done" ||
+    action === "alternative_dare" ||
+    action === "next_turn"
+  );
+}
+
+function thisOrThatChoiceFromAction(action: "pick_left" | "pick_right"): ThisOrThatChoice {
+  return action === "pick_left" ? "left" : "right";
+}
+
+function thisOrThatPickMessage(
+  choice: ThisOrThatChoice,
+  session: GameSession,
+): string {
+  const picked = choice === "left" ? "Left" : "Right";
+
+  if (session.phase === "revealed") {
+    return `Locked in ${picked}. Everyone voted, reveal is up.`;
+  }
+
+  return `Locked in ${picked}. Waiting for ${
+    session.players.length - session.choiceVotes.length
+  } more.`;
 }

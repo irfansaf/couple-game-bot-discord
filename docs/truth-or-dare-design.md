@@ -182,7 +182,7 @@ AI should generate prompts for the current state only:
 
 Add or derive:
 
-- `mode`: `truth_or_dare` vs standalone prompt modes.
+- `mode`: `truth_or_dare` vs quick prompt modes such as Couple Questions and This or That.
 - `players`: ordered active player IDs.
 - `hostUserId`.
 - `currentTurnIndex`.

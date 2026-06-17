@@ -1,6 +1,7 @@
 import {
   createGameSession,
   dequeuePrompt,
+  thisOrThatMode,
   truthOrDareMode,
   type GameSession,
 } from "../../domain/entities/game-session";
@@ -58,7 +59,7 @@ export class StartGameSessionUseCase {
     };
 
     const session = createGameSession(sessionInput);
-    if (session.mode === truthOrDareMode) {
+    if (session.mode === truthOrDareMode || session.mode === thisOrThatMode) {
       await this.sessions.save(session);
 
       return { status: "session", session };

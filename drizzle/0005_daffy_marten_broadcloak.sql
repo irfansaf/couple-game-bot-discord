@@ -1,0 +1,1 @@
+ALTER TABLE "game_sessions" ADD COLUMN "choice_votes" jsonb DEFAULT '[]'::jsonb NOT NULL;

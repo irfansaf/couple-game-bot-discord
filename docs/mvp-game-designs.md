@@ -17,10 +17,8 @@ This document defines the complete MVP game set for CoupleGame. Each mode should
 | Mode | Purpose | Primary Loop | MVP Status |
 |------|---------|--------------|------------|
 | Truth or Dare | Turn-based party/couple challenge game | Lobby -> turn choice -> prompt -> resolution -> next turn | Implemented, see `truth-or-dare-design.md` |
-| Couple Questions | Cozy shared conversation prompts | Prompt -> both respond in chat/voice -> next prompt | Needs mode-specific controls |
-| This or That | Quick preference comparison | Choice prompt -> each player picks -> next prompt | Needs pick controls |
-| Standalone Truth | Fast truth prompt without full TOD lobby | Prompt -> answered/skip/next | Current generic mode, needs tighter controls |
-| Standalone Dare | Fast dare prompt without full TOD lobby | Prompt -> done/alternative/skip/next | Current generic mode, needs tighter controls |
+| Couple Questions | Cozy shared conversation prompts | Prompt -> both respond in chat/voice -> next prompt | Implemented for MVP |
+| This or That | Secret-vote preference comparison | Lobby -> choice prompt -> all players vote -> reveal -> next prompt | Advanced MVP implemented |
 
 ## Couple Questions
 
@@ -120,46 +118,61 @@ Future:
 
 ### Mode Goal
 
-This or That should be quick, playful, and low-friction. It should help a couple compare preferences fast without turning every prompt into a long conversation.
+This or That should be quick, playful, and low-friction. It should help a couple compare preferences fast, then create a small reveal moment when everyone sees whether they matched or split.
 
 ### Player Setup
 
-- No lobby required for MVP.
-- Works best for two players.
-- Both people can press answer buttons.
-- MVP can record only visible button interactions in the message state; no persistent answer history required.
+- Starts with a lobby.
+- Minimum players: 2.
+- Maximum players: 8.
+- Works best for two players, but small groups are supported.
+- Only joined players can vote.
+- Votes are stored only as active round state; no answer history is kept.
 
 ### State Machine
 
-1. **Choice Revealed**
+1. **Lobby**
+   - Show host and joined players.
+   - Host starts once at least 2 players joined.
+
+2. **Choice Revealed**
    - Show one `A or B` style prompt.
    - Embed title: `This or That`.
    - Main prompt should make both options obvious.
 
-2. **Pick / React**
-   - Players choose `Left`, `Right`, `Both`, or `Neither`.
-   - MVP may simply acknowledge with an ephemeral response.
-   - Later, the message can show counts or who picked what.
+3. **Secret Vote**
+   - Players choose `Left` or `Right`.
+   - Bot acknowledges each vote ephemerally.
+   - Public card shows vote progress like `1/2 locked in`.
+   - Choices remain hidden until every joined player has voted.
 
-3. **Next Choice**
+4. **Reveal**
+   - Bot shows Left and Right player lists.
+   - If all players picked the same side, show a match result.
+   - If players split, show a playful split result.
+
+5. **Next Choice**
    - `Next` draws a new prompt.
    - `Skip` draws a new prompt without recording judgment.
 
-4. **Ended**
+6. **Ended**
    - Mark session ended.
 
 ### Buttons
 
+- `Join`
+- `Leave`
+- `Start`
+- `Rules`
 - `Left`
 - `Right`
-- `Both`
-- `Neither`
 - `Next`
+- `Skip`
+- `Softer`
 - `End`
 
 Optional later:
 - `Why?`
-- `Reveal Picks`
 - `Private Picks`
 
 ### Prompt Rules
@@ -187,141 +200,38 @@ AI should return a single sentence where the two choices are obvious. Avoid long
 
 ### Data Model Needs
 
-MVP can use existing prompt queue/session fields.
+Implemented in `GameSession`:
+- `players`
+- `phase`
+- `choiceVotes`
+- `currentPrompt`
+- `promptQueue`
 
 Future:
-- `choiceVotes`
-- per-user current choice
 - reveal mode: public, private, anonymous
 
 ### Acceptance Criteria
 
-- `/game start mode:This or That` shows a choice prompt immediately.
-- Buttons show pick controls, not generic game mode switches.
-- `Left`, `Right`, `Both`, and `Neither` give short ephemeral acknowledgements in MVP.
-- `Next` draws another This or That prompt.
+- `/game start mode:This or That` shows a lobby.
+- Host cannot start until at least 2 players have joined.
+- Buttons show lobby controls, voting controls, or reveal controls depending on state.
+- `Left` and `Right` give short ephemeral acknowledgements.
+- Results reveal only after every joined player has voted.
+- `Next` draws another This or That prompt after reveal.
 - AI/static queue uses `this_or_that` only.
-
-## Standalone Truth
-
-### Mode Goal
-
-Standalone Truth is a fast prompt deck for honest but safe disclosure without the full Truth or Dare lobby/turn flow.
-
-### Player Setup
-
-- No lobby required.
-- No turn ownership required in MVP.
-- Either partner can draw the next truth.
-
-### State Machine
-
-1. **Truth Revealed**
-   - Show one truth prompt.
-   - Optional follow-up may appear.
-
-2. **Resolution**
-   - `Answered` can move to the next prompt or simply acknowledge later.
-   - `Skip` draws another truth.
-   - `Softer` lowers intensity.
-   - `Deeper` raises intensity if safe.
-
-3. **Ended**
-   - Mark session ended.
-
-### Buttons
-
-- `Answered`
-- `Next Truth`
-- `Skip`
-- `Softer`
-- `Deeper`
-- `End`
-
-### Prompt Rules
-
-Truth prompts should:
-- Invite self-disclosure without interrogation.
-- Avoid secrets, accusations, loyalty tests, and jealousy triggers.
-- Be answerable in text or voice.
-- Keep screenshots in mind.
-
-### AI Behavior
-
-AI/static queue uses `truth` only. Recent prompt text is required for uniqueness.
-
-### Acceptance Criteria
-
-- `/game start mode:Truth` shows a truth prompt immediately.
-- Controls do not show Dare, Couple Q, or This/That buttons.
-- `Next Truth` and `Skip` both draw truth prompts.
-- `Softer` and `Deeper` stay within the 1-3 intensity range.
-
-## Standalone Dare
-
-### Mode Goal
-
-Standalone Dare is a quick dare deck for playful actions without a full Truth or Dare session. It should be safe, skippable, and context-aware.
-
-### Player Setup
-
-- No lobby required.
-- No turn ownership required in MVP.
-- Uses `playContext` later if added to standalone prompt sessions; until then, default dares should be remote-safe.
-
-### State Machine
-
-1. **Dare Revealed**
-   - Show one dare prompt.
-   - Footer shows source and intensity.
-
-2. **Resolution**
-   - `Done` acknowledges completion.
-   - `Alternative Dare` draws another dare at same intensity/context.
-   - `Softer` lowers intensity.
-   - `Skip` draws another dare without judgment.
-
-3. **Ended**
-   - Mark session ended.
-
-### Buttons
-
-- `Done`
-- `Alternative Dare`
-- `Skip`
-- `Softer`
-- `Spicier`
-- `End`
-
-### Prompt Rules
-
-Dares should:
-- Be playful and doable.
-- Avoid explicit, dangerous, humiliating, illegal, coercive, or public-pressure prompts.
-- Avoid involving non-players.
-- Default to remote-safe unless a session explicitly chooses `meet`.
-
-### AI Behavior
-
-AI/static queue uses `dare` only. If standalone play context is not implemented yet, pass `e_meet` so AI avoids in-person-only dares.
-
-### Acceptance Criteria
-
-- `/game start mode:Dare` shows a dare prompt immediately.
-- Controls do not show Truth, Couple Q, or This/That buttons.
-- `Alternative Dare` draws another dare.
-- `Softer` lowers intensity and clears incompatible queued prompts.
-- Static fallback only uses safe remote-compatible dares by default.
 
 ## Shared Implementation Order
 
-1. Keep Truth or Dare as the rich turn-based session.
-2. Add mode-specific card builders for Couple Questions, This or That, standalone Truth, and standalone Dare.
-3. Add new button actions for `deeper`, `left`, `right`, `both`, `neither`, `next_truth`, and `alternative_dare` reuse where possible.
-4. Add ephemeral acknowledgements for This or That picks.
-5. Ensure each mode passes the correct prompt type to the AI/static queue.
-6. Add tests for each mode's button layout and prompt type locking.
-7. Expand static prompt packs for every mood/intensity pair.
+1. Done: Keep Truth or Dare as the rich turn-based session.
+2. Done: Add mode-specific card builders for Couple Questions and This or That.
+   - Done: Couple Questions.
+   - Done: This or That.
+3. Done: Remove standalone Truth and standalone Dare from the MVP mode list; Truth and Dare live only inside Truth or Dare.
+4. Done: Add button actions for `deeper`, `pick_left`, and `pick_right`.
+5. Done: Add ephemeral acknowledgements and reveal flow for This or That picks.
+6. Ensure each mode passes the correct prompt type to the AI/static queue.
+7. Add tests for each mode's button layout and prompt type locking.
+8. Expand static prompt packs for every mood/intensity pair.
 
 ## MVP Done Criteria
 

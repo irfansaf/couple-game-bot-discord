@@ -24,6 +24,8 @@ import {
 import type { PostgresConnection } from "./client";
 import { gameSessions } from "./schema";
 
+const storedGameModes = [...gameModes, "truth", "dare"] as const;
+
 const storedPromptSchema = z.object({
   id: z.string().min(1),
   type: z.enum(promptTypes),
@@ -35,13 +37,18 @@ const storedPromptSchema = z.object({
   source: z.enum(["static", "ai"]),
 });
 
+const storedThisOrThatVoteSchema = z.object({
+  userId: z.string().min(1),
+  choice: z.enum(["left", "right"]),
+});
+
 const sessionRowSchema = z.object({
   id: z.string().min(1),
   guildId: z.string().min(1),
   channelId: z.string().min(1),
   hostUserId: z.string().min(1),
   playerIds: z.array(z.string().min(1)).min(1),
-  mode: z.enum(gameModes),
+  mode: z.enum(storedGameModes),
   mood: z.enum(moods),
   intensity: z.number().int().min(1).max(3),
   recentPromptIds: z.array(z.string().min(1)),
@@ -50,8 +57,9 @@ const sessionRowSchema = z.object({
   promptQueueType: z.enum(promptTypes).nullable(),
   currentPrompt: storedPromptSchema.nullable(),
   playContext: z.enum(playContexts),
+  choiceVotes: z.array(storedThisOrThatVoteSchema),
   currentTurnIndex: z.number().int().min(0),
-  phase: z.enum(["lobby", "turn_choice", "prompt_revealed"]),
+  phase: z.enum(["lobby", "turn_choice", "prompt_revealed", "voting", "revealed"]),
   status: z.enum(["active", "ended"]),
   createdAt: z.date(),
   endedAt: z.date().nullable(),
@@ -82,6 +90,7 @@ export class PostgresSessionRepository implements SessionRepository {
           ? null
           : toStoredPrompt(session.currentPrompt),
         playContext: session.playContext,
+        choiceVotes: session.choiceVotes.map(toStoredThisOrThatVote),
         currentTurnIndex: session.currentTurnIndex,
         phase: session.phase,
         status: session.status,
@@ -104,6 +113,7 @@ export class PostgresSessionRepository implements SessionRepository {
             ? null
             : toStoredPrompt(session.currentPrompt),
           playContext: session.playContext,
+          choiceVotes: session.choiceVotes.map(toStoredThisOrThatVote),
           currentTurnIndex: session.currentTurnIndex,
           phase: session.phase,
           status: session.status,
@@ -135,7 +145,7 @@ function toDomain(row: SessionRow): GameSession {
     channelId: createChannelId(parsed.channelId),
     hostUserId: createUserId(parsed.hostUserId),
     players: parsed.playerIds.map(createUserId),
-    mode: parsed.mode,
+    mode: normalizeStoredMode(parsed.mode),
     mood: parsed.mood,
     intensity: createIntensity(parsed.intensity),
     recentPromptIds: parsed.recentPromptIds.map(createPromptId),
@@ -146,12 +156,20 @@ function toDomain(row: SessionRow): GameSession {
       ? undefined
       : fromStoredPrompt(parsed.currentPrompt),
     playContext: parsed.playContext,
+    choiceVotes: parsed.choiceVotes.map((vote) => ({
+      userId: createUserId(vote.userId),
+      choice: vote.choice,
+    })),
     currentTurnIndex: parsed.currentTurnIndex,
     phase: parsed.phase as GameSessionPhase,
     status: parsed.status as GameSessionStatus,
     createdAt: parsed.createdAt,
     ...(endedAt === undefined ? {} : { endedAt }),
   };
+}
+
+function normalizeStoredMode(mode: (typeof storedGameModes)[number]) {
+  return mode === "truth" || mode === "dare" ? "truth_or_dare" : mode;
 }
 
 function toStoredPrompt(prompt: Prompt) {
@@ -164,6 +182,13 @@ function toStoredPrompt(prompt: Prompt) {
     safetyNotes: [...prompt.safetyNotes],
     source: prompt.source,
     ...(prompt.followUp === undefined ? {} : { followUp: prompt.followUp }),
+  };
+}
+
+function toStoredThisOrThatVote(vote: GameSession["choiceVotes"][number]) {
+  return {
+    userId: vote.userId,
+    choice: vote.choice,
   };
 }
 

@@ -36,6 +36,13 @@
       "when": 1781713809031,
       "tag": "0004_public_thunderbolt_ross",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1781735915747,
+      "tag": "0005_daffy_marten_broadcloak",
+      "breakpoints": true
     }
   ]
 }

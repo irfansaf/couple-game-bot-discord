@@ -50,7 +50,7 @@ describe("static game loop", () => {
       guildId: "guild-1",
       channelId: "channel-1",
       startedByUserId: "user-1",
-      mode: "this_or_that",
+      mode: "couple_question",
       mood: "flirty_safe",
       intensity: 2,
     });
@@ -60,14 +60,14 @@ describe("static game loop", () => {
       throw new Error("Expected prompt output.");
     }
 
-    expect(output.session.mode).toBe("this_or_that");
+    expect(output.session.mode).toBe("couple_question");
     expect(output.session.mood).toBe("flirty_safe");
     expect(intensityValue(output.session.intensity)).toBe(2);
-    expect(output.prompt.type).toBe("this_or_that");
+    expect(output.prompt.type).toBe("couple_question");
     expect(output.prompt.mood).toBe("flirty_safe");
   });
 
-  it("handles prompt buttons and avoids immediate repeats when alternatives exist", async () => {
+  it("handles quick prompt buttons and avoids immediate repeats when alternatives exist", async () => {
     const sessions = new InMemorySessionRepository();
     const sessionIds = new FixedSessionIdGenerator(
       "019ed5c9-03f7-7dc7-8660-f41abdeca21d",
@@ -86,30 +86,30 @@ describe("static game loop", () => {
       startedByUserId: "user-1",
     });
 
-    const firstTruth = await handleAction.execute({
+    const firstNext = await handleAction.execute({
       sessionId: started.session.id,
-      action: "truth",
+      action: "next",
       userId: "user-1",
     });
-    const secondTruth = await handleAction.execute({
+    const secondNext = await handleAction.execute({
       sessionId: started.session.id,
-      action: "truth",
+      action: "next",
       userId: "user-1",
     });
 
-    expect(firstTruth.status).toBe("prompt");
-    expect(secondTruth.status).toBe("prompt");
+    expect(firstNext.status).toBe("prompt");
+    expect(secondNext.status).toBe("prompt");
 
-    if (firstTruth.status !== "prompt" || secondTruth.status !== "prompt") {
+    if (firstNext.status !== "prompt" || secondNext.status !== "prompt") {
       throw new Error("Expected prompt outputs.");
     }
 
-    expect(firstTruth.prompt.type).toBe("truth");
-    expect(secondTruth.prompt.type).toBe("truth");
-    expect(secondTruth.prompt.id).not.toBe(firstTruth.prompt.id);
+    expect(firstNext.prompt.type).toBe("couple_question");
+    expect(secondNext.prompt.type).toBe("couple_question");
+    expect(secondNext.prompt.id).not.toBe(firstNext.prompt.id);
   });
 
-  it("switches to every MVP game mode from actions", async () => {
+  it("switches between quick MVP prompt modes from actions", async () => {
     const sessions = new InMemorySessionRepository();
     const prompts = new StaticPromptCatalog();
     const queueRefiller = new PromptQueueRefiller(prompts);
@@ -137,14 +137,218 @@ describe("static game loop", () => {
     });
 
     expect(coupleQuestion.status).toBe("prompt");
-    expect(thisOrThat.status).toBe("prompt");
+    expect(thisOrThat.status).toBe("state");
 
-    if (coupleQuestion.status !== "prompt" || thisOrThat.status !== "prompt") {
-      throw new Error("Expected prompt outputs.");
+    if (coupleQuestion.status !== "prompt" || thisOrThat.status !== "state") {
+      throw new Error("Expected prompt and state outputs.");
     }
 
     expect(coupleQuestion.prompt.type).toBe("couple_question");
-    expect(thisOrThat.prompt.type).toBe("this_or_that");
+    expect(thisOrThat.session.mode).toBe("this_or_that");
+    expect(thisOrThat.session.phase).toBe("lobby");
+  });
+
+  it("does not treat Truth or Dare prompt choices as standalone modes", async () => {
+    const sessions = new InMemorySessionRepository();
+    const prompts = new StaticPromptCatalog();
+    const queueRefiller = new PromptQueueRefiller(prompts);
+    const startGameSession = new StartGameSessionUseCase(
+      sessions,
+      new FixedSessionIdGenerator("019ed5c9-03f7-7dc7-8660-f41abdeca21d"),
+      queueRefiller,
+    );
+    const handleAction = new HandleGameActionUseCase(sessions, queueRefiller);
+    const started = await startGameSession.execute({
+      guildId: "guild-1",
+      channelId: "channel-1",
+      startedByUserId: "user-1",
+      mode: "couple_question",
+    });
+
+    const truth = await handleAction.execute({
+      sessionId: started.session.id,
+      action: "truth",
+      userId: "user-1",
+    });
+    const dare = await handleAction.execute({
+      sessionId: started.session.id,
+      action: "dare",
+      userId: "user-1",
+    });
+
+    expect(truth.status).toBe("blocked");
+    expect(dare.status).toBe("blocked");
+
+    if (truth.status !== "blocked" || dare.status !== "blocked") {
+      throw new Error("Expected blocked outputs.");
+    }
+
+    expect(truth.reason).toBe("wrong_phase");
+    expect(dare.reason).toBe("wrong_phase");
+  });
+
+  it("keeps Couple Questions locked to its mode while adjusting depth", async () => {
+    const sessions = new InMemorySessionRepository();
+    const prompts = new StaticPromptCatalog();
+    const queueRefiller = new PromptQueueRefiller(prompts);
+    const startGameSession = new StartGameSessionUseCase(
+      sessions,
+      new FixedSessionIdGenerator("019ed5c9-03f7-7dc7-8660-f41abdeca21d"),
+      queueRefiller,
+    );
+    const handleAction = new HandleGameActionUseCase(sessions, queueRefiller);
+    const started = await startGameSession.execute({
+      guildId: "guild-1",
+      channelId: "channel-1",
+      startedByUserId: "user-1",
+      mode: "couple_question",
+      intensity: 1,
+    });
+
+    const deeper = await handleAction.execute({
+      sessionId: started.session.id,
+      action: "deeper",
+      userId: "user-1",
+    });
+
+    expect(deeper.status).toBe("prompt");
+    if (deeper.status !== "prompt") {
+      throw new Error("Expected prompt output.");
+    }
+
+    expect(deeper.session.mode).toBe("couple_question");
+    expect(deeper.prompt.type).toBe("couple_question");
+    expect(intensityValue(deeper.session.intensity)).toBe(2);
+  });
+
+  it("runs This or That as a lobby with secret votes and reveal", async () => {
+    const sessions = new InMemorySessionRepository();
+    const prompts = new StaticPromptCatalog();
+    const queueRefiller = new PromptQueueRefiller(prompts);
+    const startGameSession = new StartGameSessionUseCase(
+      sessions,
+      new FixedSessionIdGenerator("019ed5c9-03f7-7dc7-8660-f41abdeca21d"),
+      queueRefiller,
+    );
+    const handleAction = new HandleGameActionUseCase(sessions, queueRefiller);
+    const started = await startGameSession.execute({
+      guildId: "guild-1",
+      channelId: "channel-1",
+      startedByUserId: "user-1",
+      mode: "this_or_that",
+    });
+
+    expect(started.status).toBe("session");
+    expect(started.session.phase).toBe("lobby");
+    expect(started.session.choiceVotes).toEqual([]);
+
+    const tooEarly = await handleAction.execute({
+      sessionId: started.session.id,
+      action: "start_this_or_that",
+      userId: "user-1",
+    });
+
+    expect(tooEarly.status).toBe("blocked");
+    if (tooEarly.status !== "blocked") {
+      throw new Error("Expected blocked output.");
+    }
+    expect(tooEarly.reason).toBe("not_enough_players");
+
+    const joined = await handleAction.execute({
+      sessionId: started.session.id,
+      action: "join",
+      userId: "user-2",
+    });
+
+    expect(joined.status).toBe("state");
+    if (joined.status !== "state") {
+      throw new Error("Expected state output.");
+    }
+    expect(joined.session.players).toEqual(["user-1", "user-2"]);
+
+    const active = await handleAction.execute({
+      sessionId: started.session.id,
+      action: "start_this_or_that",
+      userId: "user-1",
+    });
+
+    expect(active.status).toBe("prompt");
+    if (active.status !== "prompt") {
+      throw new Error("Expected prompt output.");
+    }
+    expect(active.session.mode).toBe("this_or_that");
+    expect(active.session.phase).toBe("voting");
+    expect(active.prompt.type).toBe("this_or_that");
+
+    const outsider = await handleAction.execute({
+      sessionId: started.session.id,
+      action: "pick_left",
+      userId: "user-3",
+    });
+
+    expect(outsider.status).toBe("blocked");
+    if (outsider.status !== "blocked") {
+      throw new Error("Expected blocked output.");
+    }
+    expect(outsider.reason).toBe("not_a_player");
+
+    const firstPick = await handleAction.execute({
+      sessionId: started.session.id,
+      action: "pick_left",
+      userId: "user-1",
+    });
+
+    expect(firstPick.status).toBe("acknowledged");
+    if (firstPick.status !== "acknowledged") {
+      throw new Error("Expected acknowledged output.");
+    }
+    expect(firstPick.session.phase).toBe("voting");
+    expect(firstPick.session.choiceVotes).toEqual([
+      { userId: "user-1", choice: "left" },
+    ]);
+
+    const nextTooSoon = await handleAction.execute({
+      sessionId: started.session.id,
+      action: "next",
+      userId: "user-1",
+    });
+
+    expect(nextTooSoon.status).toBe("blocked");
+    if (nextTooSoon.status !== "blocked") {
+      throw new Error("Expected blocked output.");
+    }
+    expect(nextTooSoon.reason).toBe("wrong_phase");
+
+    const secondPick = await handleAction.execute({
+      sessionId: started.session.id,
+      action: "pick_right",
+      userId: "user-2",
+    });
+
+    expect(secondPick.status).toBe("acknowledged");
+    if (secondPick.status !== "acknowledged") {
+      throw new Error("Expected acknowledged output.");
+    }
+    expect(secondPick.session.phase).toBe("revealed");
+    expect(secondPick.session.choiceVotes).toEqual([
+      { userId: "user-1", choice: "left" },
+      { userId: "user-2", choice: "right" },
+    ]);
+
+    const next = await handleAction.execute({
+      sessionId: started.session.id,
+      action: "next",
+      userId: "user-1",
+    });
+
+    expect(next.status).toBe("prompt");
+    if (next.status !== "prompt") {
+      throw new Error("Expected prompt output.");
+    }
+    expect(next.session.mode).toBe("this_or_that");
+    expect(next.session.phase).toBe("voting");
+    expect(next.session.choiceVotes).toEqual([]);
+    expect(next.prompt.type).toBe("this_or_that");
   });
 
   it("runs Truth or Dare as a lobby and turn-based session", async () => {

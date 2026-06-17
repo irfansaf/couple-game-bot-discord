@@ -16,6 +16,7 @@ export const gameSessions = pgTable("game_sessions", {
   promptQueueType: text("prompt_queue_type"),
   currentPrompt: jsonb("current_prompt").$type<unknown>(),
   playContext: text("play_context").notNull().default("e_meet"),
+  choiceVotes: jsonb("choice_votes").$type<unknown[]>().notNull().default([]),
   currentTurnIndex: integer("current_turn_index").notNull().default(0),
   phase: text("phase").notNull().default("prompt_revealed"),
   status: text("status").notNull(),

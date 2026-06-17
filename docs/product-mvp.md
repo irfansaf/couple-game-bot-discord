@@ -8,12 +8,12 @@ AI generation should come after the static Discord loop works. The AI provider m
 
 Truth or Dare has its own turn-based design in `docs/truth-or-dare-design.md`. Treat it as a mode-specific game loop with lobby, joined players, current player, and contextual controls.
 
-The complete MVP game-mode design lives in `docs/mvp-game-designs.md`. Use it as the source of truth for Couple Questions, This or That, standalone Truth, standalone Dare, and shared mode-specific control rules.
+The complete MVP game-mode design lives in `docs/mvp-game-designs.md`. Use it as the source of truth for Truth or Dare, Couple Questions, This or That, and shared mode-specific control rules.
 
 ## MVP Goals
 
 - Make `/game start` create a simple two-person date-night session in Discord.
-- Support Truth, Dare, Couple Questions, and This or That using reviewed static question packs.
+- Support Truth or Dare, Couple Questions, and This or That using reviewed static question packs. Truth and Dare are prompt choices inside the full Truth or Dare session, not standalone game modes.
 - Present each prompt in a Discord embed with short button controls.
 - Keep controls mode-specific. For example, a Truth or Dare session should show Truth/Dare/turn controls, not every game mode button.
 - Keep the tone cozy, playful, romantic, deep, funny, and flirty-safe.
@@ -37,7 +37,7 @@ Build a static-pack game loop before AI:
 3. Register `/game start` for the configured development guild.
 4. Create a Postgres-backed session for the channel or initiating couple through an application repository port.
 5. Send a game embed with prompt type, mood, intensity, prompt text, and optional follow-up.
-6. Add buttons for Truth, Dare, Next, Skip, Softer, Spicier, and End Game.
+6. Add contextual buttons for each mode: Truth or Dare turn controls, Couple Questions depth controls, and This or That pick controls.
 7. Pull prompts from static question packs with basic repeat avoidance inside the session.
 8. Keep settings minimal: mood defaults to cozy, intensity defaults to 1 or 2, language defaults to English.
 
@@ -53,11 +53,12 @@ This slice should prove the bot feels like a game host before adding AI.
 - Database-generated UUIDv7 session ids for insertion-friendly ordering.
 - Bot login, command registration, and `/game start`.
 - Domain session model with session id, guild id, channel id, players, mood, intensity, and recent prompt ids.
-- Static prompt packs for Truth, Dare, Couple Questions, and This or That.
+- Static prompt packs for Truth, Dare, Couple Questions, and This or That prompt types.
 - Embed and button handlers for the core play loop.
 - Safety controls: Skip, Softer, Spicier, End Game.
 - Mode-specific button layouts so each game feels like its own loop.
-- Couple Questions, This or That, standalone Truth, and standalone Dare controls should follow `docs/mvp-game-designs.md`.
+- Truth or Dare, Couple Questions, and This or That controls should follow `docs/mvp-game-designs.md`.
+- Advanced This or That uses a lobby plus hidden Left/Right votes, revealing choices only after all joined players vote.
 
 ### P1 - AI Prompt Generation
 
@@ -91,13 +92,13 @@ This slice should prove the bot feels like a game host before adding AI.
 1. User runs `/game start`.
 2. Bot creates a session with defaults or the selected mode, mood, and intensity options.
 3. Bot posts a warm game embed with prompt controls.
-4. Either partner chooses Truth, Dare, Couple Q, This/That, Next, Skip, Softer, Spicier, or End Game.
+4. Either partner uses the mode-specific controls for the chosen game: Truth or Dare lobby/turn controls, Couple Questions controls, or This or That pick controls.
 
 ### Choose Prompt Type
 
-1. User taps Truth, Dare, Couple Q, or This/That.
-2. Bot selects a matching prompt from the static pack.
-3. Bot updates the embed and records the prompt id as recently used.
+1. In Truth or Dare, the current player taps Truth, Dare, or Random during their turn.
+2. In quick prompt modes, users tap Next, Skip, Softer, Deeper, or pick controls depending on the mode.
+3. Bot selects a matching prompt from the static pack or AI queue, updates the embed, and records the prompt id as recently used.
 
 ### Adjust Comfort
 
@@ -136,7 +137,7 @@ This slice should prove the bot feels like a game host before adding AI.
 - Missing or invalid Discord environment variables fail fast with clear validation errors.
 - Slash commands can be registered to `DISCORD_GUILD_ID` for local development.
 - `/game start` creates one active Postgres-backed session and posts a Discord embed.
-- The embed includes a reviewed static prompt and the required controls: Truth, Dare, Next, Skip, Softer, Spicier, End Game.
+- The embed includes a reviewed static prompt and only the controls that match the current game mode.
 - Button interactions update the session deterministically and return helpful ephemeral errors for expired or missing sessions.
 - Skip and End Game work from any prompt state.
 - Softer never increases intensity, and Spicier never exceeds the configured safe maximum.

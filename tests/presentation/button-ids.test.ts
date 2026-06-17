@@ -18,6 +18,42 @@ describe("game button ids", () => {
     });
   });
 
+  it("round-trips Couple Questions depth buttons", () => {
+    const buttonId = createGameButtonId(
+      "deeper",
+      "019ed5c9-03f7-7dc7-8660-f41abdeca21d",
+    );
+
+    expect(parseGameButtonId(buttonId)).toEqual({
+      action: "deeper",
+      sessionId: "019ed5c9-03f7-7dc7-8660-f41abdeca21d",
+    });
+  });
+
+  it("round-trips This or That pick buttons", () => {
+    const buttonId = createGameButtonId(
+      "pick_right",
+      "019ed5c9-03f7-7dc7-8660-f41abdeca21d",
+    );
+
+    expect(parseGameButtonId(buttonId)).toEqual({
+      action: "pick_right",
+      sessionId: "019ed5c9-03f7-7dc7-8660-f41abdeca21d",
+    });
+  });
+
+  it("round-trips This or That lobby buttons", () => {
+    const buttonId = createGameButtonId(
+      "start_this_or_that",
+      "019ed5c9-03f7-7dc7-8660-f41abdeca21d",
+    );
+
+    expect(parseGameButtonId(buttonId)).toEqual({
+      action: "start_this_or_that",
+      sessionId: "019ed5c9-03f7-7dc7-8660-f41abdeca21d",
+    });
+  });
+
   it("round-trips Truth or Dare session buttons", () => {
     const buttonId = createGameButtonId(
       "start_tod",

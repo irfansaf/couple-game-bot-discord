@@ -10,7 +10,11 @@ export const promptTypes = [
 
 export type PromptType = (typeof promptTypes)[number];
 
-export const gameModes = ["truth_or_dare", ...promptTypes] as const;
+export const gameModes = [
+  "truth_or_dare",
+  "couple_question",
+  "this_or_that",
+] as const;
 
 export type GameMode = (typeof gameModes)[number];
 

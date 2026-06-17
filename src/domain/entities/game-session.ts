@@ -11,15 +11,29 @@ import { shiftIntensity, type IntensityDirection } from "../value-objects/intens
 import type { GameMode, Mood, Prompt, PromptType } from "./prompt";
 
 export type GameSessionStatus = "active" | "ended";
-export type GameSessionPhase = "lobby" | "turn_choice" | "prompt_revealed";
+export type GameSessionPhase =
+  | "lobby"
+  | "turn_choice"
+  | "prompt_revealed"
+  | "voting"
+  | "revealed";
 export type TruthOrDareChoice = "truth" | "dare";
+export type ThisOrThatChoice = "left" | "right";
 export const playContexts = ["meet", "e_meet"] as const;
 export type PlayContext = (typeof playContexts)[number];
 
 export const truthOrDareMode = "truth_or_dare" satisfies GameMode;
 export const truthOrDareMinPlayers = 2;
 export const truthOrDareMaxPlayers = 8;
+export const thisOrThatMode = "this_or_that" satisfies GameMode;
+export const thisOrThatMinPlayers = 2;
+export const thisOrThatMaxPlayers = 8;
 export const defaultPlayContext = "e_meet" satisfies PlayContext;
+
+export interface ThisOrThatVote {
+  readonly userId: UserId;
+  readonly choice: ThisOrThatChoice;
+}
 
 export interface GameSession {
   readonly id: SessionId;
@@ -36,6 +50,7 @@ export interface GameSession {
   readonly promptQueueType?: PromptType | undefined;
   readonly currentPrompt?: Prompt | undefined;
   readonly playContext: PlayContext;
+  readonly choiceVotes: readonly ThisOrThatVote[];
   readonly currentTurnIndex: number;
   readonly phase: GameSessionPhase;
   readonly status: GameSessionStatus;
@@ -55,7 +70,9 @@ export interface CreateGameSessionInput {
 }
 
 export function createGameSession(input: CreateGameSessionInput): GameSession {
-  const phase = input.mode === truthOrDareMode ? "lobby" : "prompt_revealed";
+  const phase = input.mode === truthOrDareMode || input.mode === thisOrThatMode
+    ? "lobby"
+    : "prompt_revealed";
 
   return {
     id: input.id,
@@ -70,6 +87,7 @@ export function createGameSession(input: CreateGameSessionInput): GameSession {
     recentPromptTexts: [],
     promptQueue: [],
     playContext: defaultPlayContext,
+    choiceVotes: [],
     currentTurnIndex: 0,
     phase,
     status: "active",
@@ -148,7 +166,8 @@ export function dequeuePrompt(session: GameSession): DequeuedPrompt | null {
         promptQueue: remainingPrompts,
         currentPrompt: prompt,
         promptQueueType: prompt.type,
-        phase: "prompt_revealed",
+        choiceVotes: [],
+        phase: session.mode === thisOrThatMode ? "voting" : "prompt_revealed",
       },
       prompt,
     ),
@@ -167,7 +186,10 @@ export function changeGameSessionMode(
     promptQueue: [],
     promptQueueType: undefined,
     currentPrompt: undefined,
-    phase: mode === truthOrDareMode ? "lobby" : "prompt_revealed",
+    phase: mode === truthOrDareMode || mode === thisOrThatMode
+      ? "lobby"
+      : "prompt_revealed",
+    choiceVotes: [],
     currentTurnIndex: 0,
     playContext: defaultPlayContext,
   };
@@ -185,6 +207,125 @@ export function shiftGameSessionIntensity(
     promptQueue: [],
     promptQueueType: undefined,
     currentPrompt: undefined,
+    choiceVotes: [],
+  };
+}
+
+export function joinThisOrThatSession(
+  session: GameSession,
+  userId: UserId,
+  maxPlayers = thisOrThatMaxPlayers,
+): GameSession {
+  assertActive(session, "Cannot join an ended session.");
+  assertThisOrThat(session, "Cannot join a non This or That session.");
+
+  if (session.phase !== "lobby") {
+    throw new DomainValidationError("Cannot join after This or That has started.");
+  }
+
+  if (session.players.includes(userId)) {
+    return session;
+  }
+
+  if (session.players.length >= maxPlayers) {
+    throw new DomainValidationError("This or That lobby is full.");
+  }
+
+  return {
+    ...session,
+    players: [...session.players, userId],
+  };
+}
+
+export function leaveThisOrThatSession(
+  session: GameSession,
+  userId: UserId,
+  now = new Date(),
+): GameSession {
+  assertActive(session, "Cannot leave an ended session.");
+  assertThisOrThat(session, "Cannot leave a non This or That session.");
+
+  if (session.phase !== "lobby") {
+    throw new DomainValidationError("Cannot leave after This or That has started.");
+  }
+
+  const players = session.players.filter((playerId) => playerId !== userId);
+
+  if (players.length === session.players.length) {
+    return session;
+  }
+
+  if (players.length === 0) {
+    return endGameSession(session, now);
+  }
+
+  const firstPlayer = players[0];
+
+  if (firstPlayer === undefined) {
+    return endGameSession(session, now);
+  }
+
+  return {
+    ...session,
+    hostUserId: players.includes(session.hostUserId) ? session.hostUserId : firstPlayer,
+    players,
+  };
+}
+
+export function startThisOrThatSession(session: GameSession): GameSession {
+  assertActive(session, "Cannot start an ended session.");
+  assertThisOrThat(session, "Cannot start a non This or That session.");
+
+  if (session.phase !== "lobby") {
+    return session;
+  }
+
+  if (session.players.length < thisOrThatMinPlayers) {
+    throw new DomainValidationError("This or That needs at least 2 players.");
+  }
+
+  return {
+    ...session,
+    phase: "voting",
+    currentPrompt: undefined,
+    promptQueue: [],
+    promptQueueType: "this_or_that",
+    choiceVotes: [],
+  };
+}
+
+export function recordThisOrThatVote(
+  session: GameSession,
+  userId: UserId,
+  choice: ThisOrThatChoice,
+): GameSession {
+  assertActive(session, "Cannot vote in an ended session.");
+  assertThisOrThat(session, "Cannot vote in a non This or That session.");
+
+  if (session.phase !== "voting") {
+    throw new DomainValidationError("This or That is not accepting votes right now.");
+  }
+
+  if (session.currentPrompt === undefined) {
+    throw new DomainValidationError("This or That has no active choice prompt.");
+  }
+
+  if (!session.players.includes(userId)) {
+    throw new DomainValidationError("Only joined players can vote.");
+  }
+
+  const nextVotes = [
+    ...session.choiceVotes.filter((vote) => vote.userId !== userId),
+    { userId, choice },
+  ];
+  const hasAllVotes = session.players.every((playerId) =>
+    nextVotes.some((vote) => vote.userId === playerId),
+  );
+
+  return {
+    ...session,
+    choiceVotes: nextVotes,
+    phase: hasAllVotes ? "revealed" : "voting",
   };
 }
 
@@ -270,6 +411,7 @@ export function startTruthOrDareSession(session: GameSession): GameSession {
     currentPrompt: undefined,
     promptQueue: [],
     promptQueueType: undefined,
+    choiceVotes: [],
   };
 }
 
@@ -294,6 +436,7 @@ export function setTruthOrDarePlayContext(
     promptQueue: [],
     promptQueueType: undefined,
     currentPrompt: undefined,
+    choiceVotes: [],
   };
 }
 
@@ -315,6 +458,7 @@ export function chooseTruthOrDarePromptType(
     promptQueue: keepQueue ? session.promptQueue : [],
     promptQueueType: promptType,
     currentPrompt: undefined,
+    choiceVotes: [],
   };
 }
 
@@ -333,6 +477,7 @@ export function advanceTruthOrDareTurn(session: GameSession): GameSession {
     currentPrompt: undefined,
     promptQueue: [],
     promptQueueType: undefined,
+    choiceVotes: [],
   };
 }
 
@@ -363,6 +508,7 @@ export function endGameSession(session: GameSession, now = new Date()): GameSess
     currentPrompt: undefined,
     promptQueue: [],
     promptQueueType: undefined,
+    choiceVotes: [],
     endedAt: now,
   };
 }
@@ -375,6 +521,12 @@ function assertActive(session: GameSession, message: string): void {
 
 function assertTruthOrDare(session: GameSession, message: string): void {
   if (session.mode !== truthOrDareMode) {
+    throw new DomainValidationError(message);
+  }
+}
+
+function assertThisOrThat(session: GameSession, message: string): void {
+  if (session.mode !== thisOrThatMode) {
     throw new DomainValidationError(message);
   }
 }

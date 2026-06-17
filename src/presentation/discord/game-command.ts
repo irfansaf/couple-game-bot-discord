@@ -3,8 +3,6 @@ import { SlashCommandBuilder } from "discord.js";
 export const gameModeChoices = [
   { name: "Truth or Dare", value: "truth_or_dare" },
   { name: "Couple Question", value: "couple_question" },
-  { name: "Truth", value: "truth" },
-  { name: "Dare", value: "dare" },
   { name: "This or That", value: "this_or_that" },
 ] as const;
 

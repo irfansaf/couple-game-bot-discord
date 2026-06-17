@@ -8,6 +8,8 @@ import {
 import {
   currentTruthOrDarePlayer,
   type PlayContext,
+  thisOrThatMaxPlayers,
+  thisOrThatMode,
   truthOrDareMaxPlayers,
   truthOrDareMode,
   type GameSession,
@@ -31,6 +33,14 @@ export function buildPromptCard(session: GameSession, prompt: Prompt): GameCard 
     return buildTruthOrDarePromptCard(session, prompt);
   }
 
+  if (session.mode === "couple_question") {
+    return buildCoupleQuestionPromptCard(session, prompt);
+  }
+
+  if (session.mode === thisOrThatMode) {
+    return buildThisOrThatPromptCard(session, prompt);
+  }
+
   const embed = new EmbedBuilder()
     .setTitle(`${formatPromptType(prompt.type)} - ${formatMood(prompt.mood)}`)
     .setDescription(prompt.text)
@@ -50,7 +60,142 @@ export function buildPromptCard(session: GameSession, prompt: Prompt): GameCard 
 
   return {
     embeds: [embed],
-    components: buildPromptGameButtons(session.id, false),
+    components: buildQuickPromptButtons(session.id, false),
+  };
+}
+
+function buildCoupleQuestionPromptCard(
+  session: GameSession,
+  prompt: Prompt,
+): GameCard {
+  const embed = new EmbedBuilder()
+    .setTitle(`${formatPromptType(prompt.type)} - ${formatMood(prompt.mood)}`)
+    .setDescription(prompt.text)
+    .setColor(0xf4a7bb)
+    .setFooter({
+      text: `Round ${session.recentPromptIds.length} - Intensity ${intensityValue(
+        session.intensity,
+      )} - ${formatPromptSource(prompt.source)}`,
+    });
+
+  if (prompt.followUp !== undefined) {
+    embed.addFields({
+      name: "Follow-up",
+      value: prompt.followUp,
+    });
+  }
+
+  return {
+    embeds: [embed],
+    components: buildCoupleQuestionButtons(session.id, false),
+  };
+}
+
+function buildThisOrThatPromptCard(
+  session: GameSession,
+  prompt: Prompt,
+): GameCard {
+  const embed = new EmbedBuilder()
+    .setTitle(`${formatPromptType(prompt.type)} - ${formatMood(prompt.mood)}`)
+    .setDescription(prompt.text)
+    .setColor(0x86c5da)
+    .setFooter({
+      text: `Round ${session.recentPromptIds.length} - Votes ${
+        session.choiceVotes.length
+      }/${session.players.length} - Intensity ${intensityValue(
+        session.intensity,
+      )} - ${formatPromptSource(prompt.source)}`,
+    });
+
+  if (session.phase === "revealed") {
+    const leftPlayers = choicePlayers(session, "left");
+    const rightPlayers = choicePlayers(session, "right");
+    const allMatched = leftPlayers.length === session.players.length ||
+      rightPlayers.length === session.players.length;
+
+    embed.addFields(
+      {
+        name: "Left",
+        value: formatPlayers(leftPlayers),
+        inline: true,
+      },
+      {
+        name: "Right",
+        value: formatPlayers(rightPlayers),
+        inline: true,
+      },
+      {
+        name: "Result",
+        value: allMatched ? "Perfect match." : "Split tastes. Cute problem.",
+      },
+    );
+  } else {
+    embed.addFields({
+      name: "Waiting",
+      value: `${session.choiceVotes.length}/${session.players.length} locked in.`,
+    });
+  }
+
+  return {
+    embeds: [embed],
+    components: session.phase === "revealed"
+      ? buildThisOrThatRevealButtons(session.id, false)
+      : buildThisOrThatVotingButtons(session.id, false),
+  };
+}
+
+function buildThisOrThatStateCard(
+  session: GameSession,
+  options: SessionCardOptions,
+): GameCard {
+  const embed = new EmbedBuilder().setColor(0x86c5da).setFooter({
+    text: `Players ${session.players.length}/${thisOrThatMaxPlayers} - Intensity ${intensityValue(
+      session.intensity,
+    )}`,
+  });
+
+  if (session.phase === "lobby") {
+    embed
+      .setTitle("This or That lobby")
+      .setDescription(
+        [
+          `Host: ${mention(session.hostUserId)}`,
+          `Players: ${formatPlayers(session.players)}`,
+        ].join("\n"),
+      );
+
+    if (options.view === "rules") {
+      embed.addFields(
+        {
+          name: "Rules",
+          value:
+            "Join the lobby, then the host starts when at least 2 players are in. Everyone secretly picks Left or Right each round.",
+        },
+        {
+          name: "Reveal",
+          value:
+            "Choices reveal only after every joined player has voted.",
+        },
+      );
+    }
+
+    return {
+      embeds: [embed],
+      components: buildThisOrThatLobbyButtons(session.id, false),
+    };
+  }
+
+  if (session.currentPrompt !== undefined) {
+    return buildThisOrThatPromptCard(session, session.currentPrompt);
+  }
+
+  embed
+    .setTitle("This or That")
+    .setDescription("Getting the next choice ready.");
+
+  return {
+    embeds: [embed],
+    components: buildThisOrThatRevealButtons(session.id, false),
   };
 }
 
@@ -60,6 +205,10 @@ export function buildSessionStateCard(
 ): GameCard {
   if (session.mode === truthOrDareMode) {
     return buildTruthOrDareStateCard(session, options);
+  }
+
+  if (session.mode === thisOrThatMode) {
+    return buildThisOrThatStateCard(session, options);
   }
 
   const embed = new EmbedBuilder()
@@ -74,7 +223,7 @@ export function buildSessionStateCard(
 
   return {
     embeds: [embed],
-    components: buildPromptGameButtons(session.id, false),
+    components: buildQuickPromptButtons(session.id, false),
   };
 }
 
@@ -215,35 +364,82 @@ function buildTruthOrDarePromptCard(
   };
 }
 
-function buildPromptGameButtons(
+function buildQuickPromptButtons(
   sessionId: string,
   disabled: boolean,
 ): ActionRowBuilder<ButtonBuilder>[] {
   return [
     new ActionRowBuilder<ButtonBuilder>().addComponents(
-      gameButton("truth", sessionId, "Truth", ButtonStyle.Primary, disabled),
-      gameButton("dare", sessionId, "Dare", ButtonStyle.Primary, disabled),
-      gameButton(
-        "couple_question",
-        sessionId,
-        "Couple Q",
-        ButtonStyle.Primary,
-        disabled,
-      ),
-      gameButton(
-        "this_or_that",
-        sessionId,
-        "This/That",
-        ButtonStyle.Primary,
-        disabled,
-      ),
-      gameButton("next", sessionId, "Next", ButtonStyle.Secondary, disabled),
-    ),
-    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      gameButton("next", sessionId, "Next", ButtonStyle.Primary, disabled),
       gameButton("skip", sessionId, "Skip", ButtonStyle.Secondary, disabled),
       gameButton("softer", sessionId, "Softer", ButtonStyle.Secondary, disabled),
       gameButton("spicier", sessionId, "Spicier", ButtonStyle.Secondary, disabled),
-      gameButton("end", sessionId, "End Game", ButtonStyle.Danger, disabled),
+      gameButton("end", sessionId, "End", ButtonStyle.Danger, disabled),
+    ),
+  ];
+}
+
+function buildCoupleQuestionButtons(
+  sessionId: string,
+  disabled: boolean,
+): ActionRowBuilder<ButtonBuilder>[] {
+  return [
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      gameButton("next", sessionId, "Next", ButtonStyle.Primary, disabled),
+      gameButton("skip", sessionId, "Skip", ButtonStyle.Secondary, disabled),
+      gameButton("softer", sessionId, "Softer", ButtonStyle.Secondary, disabled),
+      gameButton("deeper", sessionId, "Deeper", ButtonStyle.Secondary, disabled),
+      gameButton("end", sessionId, "End", ButtonStyle.Danger, disabled),
+    ),
+  ];
+}
+
+function buildThisOrThatLobbyButtons(
+  sessionId: string,
+  disabled: boolean,
+): ActionRowBuilder<ButtonBuilder>[] {
+  return [
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      gameButton("join", sessionId, "Join", ButtonStyle.Success, disabled),
+      gameButton("leave", sessionId, "Leave", ButtonStyle.Secondary, disabled),
+      gameButton(
+        "start_this_or_that",
+        sessionId,
+        "Start",
+        ButtonStyle.Primary,
+        disabled,
+      ),
+      gameButton("rules", sessionId, "Rules", ButtonStyle.Secondary, disabled),
+      gameButton("end", sessionId, "End", ButtonStyle.Danger, disabled),
+    ),
+  ];
+}
+
+function buildThisOrThatVotingButtons(
+  sessionId: string,
+  disabled: boolean,
+): ActionRowBuilder<ButtonBuilder>[] {
+  return [
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      gameButton("pick_left", sessionId, "Left", ButtonStyle.Primary, disabled),
+      gameButton("pick_right", sessionId, "Right", ButtonStyle.Primary, disabled),
+      gameButton("skip", sessionId, "Skip", ButtonStyle.Secondary, disabled),
+      gameButton("softer", sessionId, "Softer", ButtonStyle.Secondary, disabled),
+      gameButton("end", sessionId, "End", ButtonStyle.Danger, disabled),
+    ),
+  ];
+}
+
+function buildThisOrThatRevealButtons(
+  sessionId: string,
+  disabled: boolean,
+): ActionRowBuilder<ButtonBuilder>[] {
+  return [
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      gameButton("next", sessionId, "Next", ButtonStyle.Primary, disabled),
+      gameButton("skip", sessionId, "Skip", ButtonStyle.Secondary, disabled),
+      gameButton("softer", sessionId, "Softer", ButtonStyle.Secondary, disabled),
+      gameButton("end", sessionId, "End", ButtonStyle.Danger, disabled),
     ),
   ];
 }
@@ -342,10 +538,9 @@ function buildLoadingButtons(
 ): ActionRowBuilder<ButtonBuilder>[] {
   return [
     new ActionRowBuilder<ButtonBuilder>().addComponents(
-      gameButton("truth", sessionId, "Truth", ButtonStyle.Primary, true),
-      gameButton("dare", sessionId, "Dare", ButtonStyle.Primary, true),
-      gameButton("next", sessionId, "Next", ButtonStyle.Secondary, true),
+      gameButton("next", sessionId, "Next", ButtonStyle.Primary, true),
       gameButton("skip", sessionId, "Skip", ButtonStyle.Secondary, true),
+      gameButton("softer", sessionId, "Softer", ButtonStyle.Secondary, true),
       gameButton("end", sessionId, "End", ButtonStyle.Danger, true),
     ),
   ];
@@ -408,6 +603,15 @@ function formatPlayers(players: readonly string[]): string {
   return players.length === 0
     ? "No players yet"
     : players.map((playerId, index) => `${index + 1}. ${mention(playerId)}`).join("\n");
+}
+
+function choicePlayers(
+  session: GameSession,
+  choice: "left" | "right",
+): readonly string[] {
+  return session.choiceVotes
+    .filter((vote) => vote.choice === choice)
+    .map((vote) => vote.userId);
 }
 
 function mention(userId: string): string {

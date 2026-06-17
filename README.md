@@ -54,7 +54,11 @@ Truth or Dare also has a lobby play context:
 
 Changing play context is host-only and only available before Start. The dare queue is scoped to the selected context.
 
-The standalone prompt modes still support quick prompt-card play for Couple Question, Truth, Dare, and This/That.
+Quick prompt-card modes support Couple Question and This/That. Truth and Dare are available only inside the full Truth or Dare session.
+
+Couple Questions uses its own conversation controls: `Next`, `Skip`, `Softer`, `Deeper`, and `End`.
+
+This or That starts as a lobby with `Join`, `Leave`, `Start`, `Rules`, and `End`. After Start, each joined player secretly picks `Left` or `Right`; the bot reveals the split only after everyone has voted, then unlocks `Next`, `Skip`, `Softer`, and `End`.
 
 ## Scripts
 

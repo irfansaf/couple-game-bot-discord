@@ -222,6 +222,20 @@ export class DiscordGameController {
       return;
     }
 
+    if (output.status === "acknowledged") {
+      const card = buildCurrentSessionCard(output.session);
+
+      await interaction.editReply({
+        embeds: card.embeds,
+        components: card.components,
+      });
+      await interaction.followUp({
+        content: output.message,
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
     const card = buildPromptCard(output.session, output.prompt);
 
     await interaction.editReply({
@@ -246,6 +260,7 @@ function loadingLabelForAction(action: GameAction): string {
     join: "Joining the lobby...",
     leave: "Leaving the lobby...",
     start_tod: "Starting Truth or Dare...",
+    start_this_or_that: "Starting This or That...",
     rules: "Opening the rules...",
     set_context_meet: "Setting dares for in-person play...",
     set_context_e_meet: "Setting dares for remote play...",
@@ -258,6 +273,9 @@ function loadingLabelForAction(action: GameAction): string {
     skip: "Skipping to another prompt...",
     softer: "Making it softer...",
     spicier: "Turning it up gently...",
+    deeper: "Finding a deeper question...",
+    pick_left: "Noting your pick...",
+    pick_right: "Noting your pick...",
     answered: "Marking that truth answered...",
     done: "Marking that dare done...",
     alternative_dare: "Finding an alternate dare...",
@@ -269,7 +287,12 @@ function loadingLabelForAction(action: GameAction): string {
 }
 
 function buildCurrentSessionCard(session: GameSession) {
-  if (session.currentPrompt !== undefined && session.phase === "prompt_revealed") {
+  if (
+    session.currentPrompt !== undefined &&
+    (session.phase === "prompt_revealed" ||
+      session.phase === "voting" ||
+      session.phase === "revealed")
+  ) {
     return buildPromptCard(session, session.currentPrompt);
   }
 
@@ -289,7 +312,7 @@ function blockedMessage(
     already_joined: "You are already in this lobby.",
     session_full: "This lobby is full. Max 8 players for now.",
     not_in_lobby: "That action only works while the lobby is still open.",
-    not_enough_players: "Truth or Dare needs at least 2 players before starting.",
+    not_enough_players: `${formatModeName(session)} needs at least 2 players before starting.`,
     not_host: "Only the host can start this lobby.",
     not_a_player: "Join the game before using that button.",
     not_current_player: `It is ${currentPlayerText}'s turn right now.`,
@@ -297,6 +320,18 @@ function blockedMessage(
   } satisfies Record<GameActionBlockedReason, string>;
 
   return messages[reason];
+}
+
+function formatModeName(session: GameSession): string {
+  if (session.mode === "this_or_that") {
+    return "This or That";
+  }
+
+  if (session.mode === "truth_or_dare") {
+    return "Truth or Dare";
+  }
+
+  return "This game";
 }
 
 function parseStartOptions(interaction: ChatInputCommandInteraction) {
