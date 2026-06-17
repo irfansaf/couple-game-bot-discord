@@ -11,7 +11,7 @@ import { intensityValue } from "../../src/domain/value-objects/intensity";
 import { StaticPromptCatalog } from "../../src/infrastructure/content/static-prompt-catalog";
 
 describe("static game loop", () => {
-  it("starts a Postgres-id-backed session with an initial prompt", async () => {
+  it("starts a Postgres-id-backed Couple Questions lobby by default", async () => {
     const sessions = new InMemorySessionRepository();
     const startGameSession = new StartGameSessionUseCase(
       sessions,
@@ -25,16 +25,19 @@ describe("static game loop", () => {
       startedByUserId: "user-1",
     });
 
-    expect(output.status).toBe("prompt");
-    if (output.status !== "prompt") {
-      throw new Error("Expected prompt output.");
+    expect(output.status).toBe("session");
+    if (output.status !== "session") {
+      throw new Error("Expected session output.");
     }
 
     expect(output.session.id).toBe("019ed5c9-03f7-7dc7-8660-f41abdeca21d");
     expect(output.session.status).toBe("active");
-    expect(output.session.recentPromptIds).toEqual([output.prompt.id]);
-    expect(output.session.recentPromptTexts).toEqual([output.prompt.text]);
-    expect(output.session.promptQueue.length).toBeGreaterThan(0);
+    expect(output.session.mode).toBe("couple_question");
+    expect(output.session.phase).toBe("lobby");
+    expect(output.session.players).toEqual(["user-1"]);
+    expect(output.session.recentPromptIds).toEqual([]);
+    expect(output.session.recentPromptTexts).toEqual([]);
+    expect(output.session.promptQueue).toEqual([]);
     expect(await sessions.findById(output.session.id)).toEqual(output.session);
   });
 
@@ -55,16 +58,75 @@ describe("static game loop", () => {
       intensity: 2,
     });
 
-    expect(output.status).toBe("prompt");
-    if (output.status !== "prompt") {
-      throw new Error("Expected prompt output.");
+    expect(output.status).toBe("session");
+    if (output.status !== "session") {
+      throw new Error("Expected session output.");
     }
 
     expect(output.session.mode).toBe("couple_question");
     expect(output.session.mood).toBe("flirty_safe");
     expect(intensityValue(output.session.intensity)).toBe(2);
-    expect(output.prompt.type).toBe("couple_question");
-    expect(output.prompt.mood).toBe("flirty_safe");
+    expect(output.session.phase).toBe("lobby");
+  });
+
+  it("starts Couple Questions from lobby with one or more joined players", async () => {
+    const sessions = new InMemorySessionRepository();
+    const prompts = new StaticPromptCatalog();
+    const queueRefiller = new PromptQueueRefiller(prompts);
+    const startGameSession = new StartGameSessionUseCase(
+      sessions,
+      new FixedSessionIdGenerator("019ed5c9-03f7-7dc7-8660-f41abdeca21d"),
+      queueRefiller,
+    );
+    const handleAction = new HandleGameActionUseCase(sessions, queueRefiller);
+    const started = await startGameSession.execute({
+      guildId: "guild-1",
+      channelId: "channel-1",
+      startedByUserId: "user-1",
+      mode: "couple_question",
+    });
+
+    const soloPrompt = await handleAction.execute({
+      sessionId: started.session.id,
+      action: "start_couple_question",
+      userId: "user-1",
+    });
+
+    expect(soloPrompt.status).toBe("prompt");
+    if (soloPrompt.status !== "prompt") {
+      throw new Error("Expected prompt output.");
+    }
+    expect(soloPrompt.session.players).toEqual(["user-1"]);
+    expect(soloPrompt.session.phase).toBe("prompt_revealed");
+    expect(soloPrompt.prompt.type).toBe("couple_question");
+
+    const secondSession = await startGameSession.execute({
+      guildId: "guild-1",
+      channelId: "channel-1",
+      startedByUserId: "user-1",
+      mode: "couple_question",
+    });
+    const joined = await handleAction.execute({
+      sessionId: secondSession.session.id,
+      action: "join",
+      userId: "user-2",
+    });
+    const groupPrompt = await handleAction.execute({
+      sessionId: secondSession.session.id,
+      action: "start_couple_question",
+      userId: "user-1",
+    });
+
+    expect(joined.status).toBe("state");
+    if (joined.status !== "state") {
+      throw new Error("Expected state output.");
+    }
+    expect(joined.session.players).toEqual(["user-1", "user-2"]);
+    expect(groupPrompt.status).toBe("prompt");
+    if (groupPrompt.status !== "prompt") {
+      throw new Error("Expected prompt output.");
+    }
+    expect(groupPrompt.session.players).toEqual(["user-1", "user-2"]);
   });
 
   it("handles quick prompt buttons and avoids immediate repeats when alternatives exist", async () => {
@@ -85,14 +147,24 @@ describe("static game loop", () => {
       channelId: "channel-1",
       startedByUserId: "user-1",
     });
+    const active = await handleAction.execute({
+      sessionId: started.session.id,
+      action: "start_couple_question",
+      userId: "user-1",
+    });
+
+    expect(active.status).toBe("prompt");
+    if (active.status !== "prompt") {
+      throw new Error("Expected prompt output.");
+    }
 
     const firstNext = await handleAction.execute({
-      sessionId: started.session.id,
+      sessionId: active.session.id,
       action: "next",
       userId: "user-1",
     });
     const secondNext = await handleAction.execute({
-      sessionId: started.session.id,
+      sessionId: active.session.id,
       action: "next",
       userId: "user-1",
     });
@@ -109,7 +181,7 @@ describe("static game loop", () => {
     expect(secondNext.prompt.id).not.toBe(firstNext.prompt.id);
   });
 
-  it("switches between quick MVP prompt modes from actions", async () => {
+  it("opens This or That as a lobby from the command option", async () => {
     const sessions = new InMemorySessionRepository();
     const prompts = new StaticPromptCatalog();
     const queueRefiller = new PromptQueueRefiller(prompts);
@@ -118,34 +190,20 @@ describe("static game loop", () => {
       new FixedSessionIdGenerator("019ed5c9-03f7-7dc7-8660-f41abdeca21d"),
       queueRefiller,
     );
-    const handleAction = new HandleGameActionUseCase(sessions, queueRefiller);
     const started = await startGameSession.execute({
       guildId: "guild-1",
       channelId: "channel-1",
       startedByUserId: "user-1",
+      mode: "this_or_that",
     });
 
-    const coupleQuestion = await handleAction.execute({
-      sessionId: started.session.id,
-      action: "couple_question",
-      userId: "user-1",
-    });
-    const thisOrThat = await handleAction.execute({
-      sessionId: started.session.id,
-      action: "this_or_that",
-      userId: "user-1",
-    });
-
-    expect(coupleQuestion.status).toBe("prompt");
-    expect(thisOrThat.status).toBe("state");
-
-    if (coupleQuestion.status !== "prompt" || thisOrThat.status !== "state") {
-      throw new Error("Expected prompt and state outputs.");
+    expect(started.status).toBe("session");
+    if (started.status !== "session") {
+      throw new Error("Expected session output.");
     }
 
-    expect(coupleQuestion.prompt.type).toBe("couple_question");
-    expect(thisOrThat.session.mode).toBe("this_or_that");
-    expect(thisOrThat.session.phase).toBe("lobby");
+    expect(started.session.mode).toBe("this_or_that");
+    expect(started.session.phase).toBe("lobby");
   });
 
   it("does not treat Truth or Dare prompt choices as standalone modes", async () => {
@@ -204,9 +262,19 @@ describe("static game loop", () => {
       mode: "couple_question",
       intensity: 1,
     });
+    const active = await handleAction.execute({
+      sessionId: started.session.id,
+      action: "start_couple_question",
+      userId: "user-1",
+    });
+
+    expect(active.status).toBe("prompt");
+    if (active.status !== "prompt") {
+      throw new Error("Expected prompt output.");
+    }
 
     const deeper = await handleAction.execute({
-      sessionId: started.session.id,
+      sessionId: active.session.id,
       action: "deeper",
       userId: "user-1",
     });
@@ -504,14 +572,24 @@ describe("static game loop", () => {
       startedByUserId: "user-1",
       intensity: 3,
     });
+    const active = await handleAction.execute({
+      sessionId: started.session.id,
+      action: "start_couple_question",
+      userId: "user-1",
+    });
+
+    expect(active.status).toBe("prompt");
+    if (active.status !== "prompt") {
+      throw new Error("Expected prompt output.");
+    }
 
     const spicier = await handleAction.execute({
-      sessionId: started.session.id,
+      sessionId: active.session.id,
       action: "spicier",
       userId: "user-1",
     });
     const ended = await handleAction.execute({
-      sessionId: started.session.id,
+      sessionId: active.session.id,
       action: "end",
       userId: "user-1",
       now: new Date("2026-06-17T00:00:00.000Z"),

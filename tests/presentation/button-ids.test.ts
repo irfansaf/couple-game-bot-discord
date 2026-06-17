@@ -30,6 +30,30 @@ describe("game button ids", () => {
     });
   });
 
+  it("round-trips Couple Questions private answer buttons", () => {
+    const buttonId = createGameButtonId(
+      "answer_private",
+      "019ed5c9-03f7-7dc7-8660-f41abdeca21d",
+    );
+
+    expect(parseGameButtonId(buttonId)).toEqual({
+      action: "answer_private",
+      sessionId: "019ed5c9-03f7-7dc7-8660-f41abdeca21d",
+    });
+  });
+
+  it("round-trips Couple Questions lobby buttons", () => {
+    const buttonId = createGameButtonId(
+      "start_couple_question",
+      "019ed5c9-03f7-7dc7-8660-f41abdeca21d",
+    );
+
+    expect(parseGameButtonId(buttonId)).toEqual({
+      action: "start_couple_question",
+      sessionId: "019ed5c9-03f7-7dc7-8660-f41abdeca21d",
+    });
+  });
+
   it("round-trips This or That pick buttons", () => {
     const buttonId = createGameButtonId(
       "pick_right",

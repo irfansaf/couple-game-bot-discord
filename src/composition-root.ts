@@ -1,6 +1,8 @@
 import type { RuntimeConfig } from "./config/env";
 import { summarizeConfig } from "./config/env";
+import { PrivateAnswerCoordinator } from "./application/services/private-answer-coordinator";
 import { PromptQueueRefiller } from "./application/services/prompt-queue-refiller";
+import { GetGameSessionUseCase } from "./application/use-cases/get-game-session";
 import { HandleGameActionUseCase } from "./application/use-cases/handle-game-action";
 import { RefillPromptQueueUseCase } from "./application/use-cases/refill-prompt-queue";
 import { StartGameSessionUseCase } from "./application/use-cases/start-game-session";
@@ -37,11 +39,15 @@ export function createApp(config: RuntimeConfig) {
     queueRefiller,
   );
   const handleGameAction = new HandleGameActionUseCase(sessions, queueRefiller);
+  const getGameSession = new GetGameSessionUseCase(sessions);
   const refillPromptQueue = new RefillPromptQueueUseCase(sessions, queueRefiller);
+  const privateAnswers = new PrivateAnswerCoordinator();
   const gameController = new DiscordGameController(
     startGameSession,
+    getGameSession,
     handleGameAction,
     refillPromptQueue,
+    privateAnswers,
     logger,
   );
 
@@ -51,6 +57,7 @@ export function createApp(config: RuntimeConfig) {
     discordClient,
     questionGenerator,
     startGameSession,
+    getGameSession,
     handleGameAction,
     refillPromptQueue,
     start: async () => {

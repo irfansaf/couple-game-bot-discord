@@ -12,7 +12,7 @@ The complete MVP game-mode design lives in `docs/mvp-game-designs.md`. Use it as
 
 ## MVP Goals
 
-- Make `/game start` create a simple two-person date-night session in Discord.
+- Make `/game start` create a simple date-night session in Discord with a lightweight lobby.
 - Support Truth or Dare, Couple Questions, and This or That using reviewed static question packs. Truth and Dare are prompt choices inside the full Truth or Dare session, not standalone game modes.
 - Present each prompt in a Discord embed with short button controls.
 - Keep controls mode-specific. For example, a Truth or Dare session should show Truth/Dare/turn controls, not every game mode button.
@@ -58,6 +58,7 @@ This slice should prove the bot feels like a game host before adding AI.
 - Safety controls: Skip, Softer, Spicier, End Game.
 - Mode-specific button layouts so each game feels like its own loop.
 - Truth or Dare, Couple Questions, and This or That controls should follow `docs/mvp-game-designs.md`.
+- Couple Questions uses a lobby and can start with 1 or more joined players.
 - Advanced This or That uses a lobby plus hidden Left/Right votes, revealing choices only after all joined players vote.
 
 ### P1 - AI Prompt Generation
@@ -74,7 +75,7 @@ This slice should prove the bot feels like a game host before adding AI.
 ### P2 - Session Settings And Private Answers
 
 - Per-session language, mood, and intensity settings.
-- Private answer mode where each partner answers ephemerally and the bot reveals both answers together.
+- Done for Couple Questions: private answer mode where joined users answer through modals and the bot reveals answers together after every joined player submits.
 - Clear timeout and cancel behavior for private answers.
 - No answer history unless explicitly added later.
 
@@ -91,8 +92,9 @@ This slice should prove the bot feels like a game host before adding AI.
 
 1. User runs `/game start`.
 2. Bot creates a session with defaults or the selected mode, mood, and intensity options.
-3. Bot posts a warm game embed with prompt controls.
-4. Either partner uses the mode-specific controls for the chosen game: Truth or Dare lobby/turn controls, Couple Questions controls, or This or That pick controls.
+3. Bot posts a warm game lobby or game embed with contextual controls.
+4. Players join if the mode uses a lobby, then the host starts.
+5. Joined players use the mode-specific controls for the chosen game: Truth or Dare lobby/turn controls, Couple Questions private answer/depth controls, or This or That pick controls.
 
 ### Choose Prompt Type
 
@@ -125,7 +127,7 @@ This slice should prove the bot feels like a game host before adding AI.
 ## Data And Privacy Notes
 
 - Store only gameplay metadata in Postgres: ids, settings, recent prompt ids, statuses, and timestamps.
-- Do not store private answers in the MVP.
+- Do not store private answer history in the MVP. Current Couple Questions private answers are held only in memory until reveal or round change, and reveal targets the joined player count.
 - Do not log Discord tokens, AI keys, private answers, AI raw completions that may include intimate content, or sensitive user text.
 - Prefer ephemeral replies for settings, errors, and private answer collection.
 - Treat AI output as untrusted until schema validation and safety checks pass.

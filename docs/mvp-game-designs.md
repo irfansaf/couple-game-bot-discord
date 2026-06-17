@@ -17,7 +17,7 @@ This document defines the complete MVP game set for CoupleGame. Each mode should
 | Mode | Purpose | Primary Loop | MVP Status |
 |------|---------|--------------|------------|
 | Truth or Dare | Turn-based party/couple challenge game | Lobby -> turn choice -> prompt -> resolution -> next turn | Implemented, see `truth-or-dare-design.md` |
-| Couple Questions | Cozy shared conversation prompts | Prompt -> both respond in chat/voice -> next prompt | Implemented for MVP |
+| Couple Questions | Cozy shared conversation prompts | Lobby -> prompt -> optional private answers -> reveal together -> next prompt | Lobby and private answers implemented |
 | This or That | Secret-vote preference comparison | Lobby -> choice prompt -> all players vote -> reveal -> next prompt | Advanced MVP implemented |
 
 ## Couple Questions
@@ -28,30 +28,48 @@ Couple Questions should feel like a gentle conversation deck for two people. It 
 
 ### Player Setup
 
-- Default players: the session starter and whoever is present in the channel.
-- No lobby required for MVP.
-- Works for two people first, but does not break if more users are present.
-- No current-player restriction; either partner can press controls.
+- Starts with a lobby.
+- Minimum players: 1.
+- Maximum players: 8.
+- The session starter is the first player and host.
+- The host can start immediately for solo reflection, or wait for one or more partners/friends to join.
+- No current-player restriction after start; any joined player can press conversation controls.
 
 ### State Machine
 
-1. **Prompt Revealed**
+1. **Lobby**
+   - Show host and joined players.
+   - Host can start with 1 or more players.
+   - Rules explain that private answer reveal waits for joined players.
+
+2. **Prompt Revealed**
    - Show one couple question.
    - Optional follow-up appears as a field.
    - Footer shows mood, intensity, source, and round.
 
-2. **Depth Adjustment**
+3. **Private Answer**
+   - `Answer` opens a private Discord modal.
+   - Bot waits for every joined player to answer.
+   - Public card shows answer progress only, not answer text.
+   - Once all answers are in, the bot reveals the answers together.
+
+4. **Depth Adjustment**
    - Softer lowers intensity or asks for a gentler question.
    - Deeper raises intensity within safe limits.
    - Skip draws a new question without judgment.
 
-3. **Ended**
+5. **Ended**
    - Mark session ended.
    - Disable controls where practical.
 
 ### Buttons
 
+- `Join`
+- `Leave`
+- `Start`
+- `Rules`
 - `Next`
+- `Answer`
 - `Skip`
 - `Softer`
 - `Deeper`
@@ -90,6 +108,8 @@ AI should return:
 ### Data Model Needs
 
 Existing `GameSession` fields are enough for MVP:
+- `players`
+- `phase`
 - `mode`
 - `mood`
 - `intensity`
@@ -100,18 +120,21 @@ Existing `GameSession` fields are enough for MVP:
 - `status`
 
 Future:
-- `privateAnswerMode`
-- answer submission state
 - saved favorite prompt IDs
 
 ### Acceptance Criteria
 
-- `/game start mode:Couple Question` shows a couple question immediately.
+- `/game start mode:Couple Question` shows a lobby.
+- Host can start with only themselves in the lobby.
+- Additional Discord users can join before Start.
 - Buttons are only Couple Questions controls, not Truth/Dare/This-or-That controls.
+- Lobby buttons are `Join`, `Leave`, `Start`, `Rules`, and `End`.
 - `Next` keeps the same mode.
 - `Softer` cannot go below intensity 1.
 - `Deeper` cannot exceed intensity 3.
 - `Skip` draws another question without changing mood.
+- `Answer` opens a modal only for joined players and keeps submitted answers private until all joined players answer.
+- Private answer text is held only in process memory until reveal or round change.
 - AI/static prompt queue uses `couple_question` only.
 
 ## This Or That

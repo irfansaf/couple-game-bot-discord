@@ -54,9 +54,9 @@ Truth or Dare also has a lobby play context:
 
 Changing play context is host-only and only available before Start. The dare queue is scoped to the selected context.
 
-Quick prompt-card modes support Couple Question and This/That. Truth and Dare are available only inside the full Truth or Dare session.
+Truth, Dare, Couple Questions, and This or That now run as contextual game sessions. Truth and Dare are available only inside the full Truth or Dare session.
 
-Couple Questions uses its own conversation controls: `Next`, `Skip`, `Softer`, `Deeper`, and `End`.
+Couple Questions starts as a lobby with `Join`, `Leave`, `Start`, `Rules`, and `End`. The host can start with 1 or more players, so it works solo, as a couple, or as a tiny private group. Once active, it uses `Answer`, `Next`, `Skip`, `Softer`, `Deeper`, and `End`. `Answer` opens a private modal for joined players; once every joined player answers, the bot reveals the answers together. Private answers are kept only in bot memory until reveal or round change, not persisted as history.
 
 This or That starts as a lobby with `Join`, `Leave`, `Start`, `Rules`, and `End`. After Start, each joined player secretly picks `Left` or `Right`; the bot reveals the split only after everyone has voted, then unlocks `Next`, `Skip`, `Softer`, and `End`.
 

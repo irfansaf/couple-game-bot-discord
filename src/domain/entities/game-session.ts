@@ -25,6 +25,9 @@ export type PlayContext = (typeof playContexts)[number];
 export const truthOrDareMode = "truth_or_dare" satisfies GameMode;
 export const truthOrDareMinPlayers = 2;
 export const truthOrDareMaxPlayers = 8;
+export const coupleQuestionMode = "couple_question" satisfies GameMode;
+export const coupleQuestionMinPlayers = 1;
+export const coupleQuestionMaxPlayers = 8;
 export const thisOrThatMode = "this_or_that" satisfies GameMode;
 export const thisOrThatMinPlayers = 2;
 export const thisOrThatMaxPlayers = 8;
@@ -70,7 +73,7 @@ export interface CreateGameSessionInput {
 }
 
 export function createGameSession(input: CreateGameSessionInput): GameSession {
-  const phase = input.mode === truthOrDareMode || input.mode === thisOrThatMode
+  const phase = isLobbyMode(input.mode)
     ? "lobby"
     : "prompt_revealed";
 
@@ -186,7 +189,7 @@ export function changeGameSessionMode(
     promptQueue: [],
     promptQueueType: undefined,
     currentPrompt: undefined,
-    phase: mode === truthOrDareMode || mode === thisOrThatMode
+    phase: isLobbyMode(mode)
       ? "lobby"
       : "prompt_revealed",
     choiceVotes: [],
@@ -207,6 +210,89 @@ export function shiftGameSessionIntensity(
     promptQueue: [],
     promptQueueType: undefined,
     currentPrompt: undefined,
+    choiceVotes: [],
+  };
+}
+
+export function joinCoupleQuestionSession(
+  session: GameSession,
+  userId: UserId,
+  maxPlayers = coupleQuestionMaxPlayers,
+): GameSession {
+  assertActive(session, "Cannot join an ended session.");
+  assertCoupleQuestion(session, "Cannot join a non Couple Questions session.");
+
+  if (session.phase !== "lobby") {
+    throw new DomainValidationError("Cannot join after Couple Questions has started.");
+  }
+
+  if (session.players.includes(userId)) {
+    return session;
+  }
+
+  if (session.players.length >= maxPlayers) {
+    throw new DomainValidationError("Couple Questions lobby is full.");
+  }
+
+  return {
+    ...session,
+    players: [...session.players, userId],
+  };
+}
+
+export function leaveCoupleQuestionSession(
+  session: GameSession,
+  userId: UserId,
+  now = new Date(),
+): GameSession {
+  assertActive(session, "Cannot leave an ended session.");
+  assertCoupleQuestion(session, "Cannot leave a non Couple Questions session.");
+
+  if (session.phase !== "lobby") {
+    throw new DomainValidationError("Cannot leave after Couple Questions has started.");
+  }
+
+  const players = session.players.filter((playerId) => playerId !== userId);
+
+  if (players.length === session.players.length) {
+    return session;
+  }
+
+  if (players.length === 0) {
+    return endGameSession(session, now);
+  }
+
+  const firstPlayer = players[0];
+
+  if (firstPlayer === undefined) {
+    return endGameSession(session, now);
+  }
+
+  return {
+    ...session,
+    hostUserId: players.includes(session.hostUserId) ? session.hostUserId : firstPlayer,
+    players,
+  };
+}
+
+export function startCoupleQuestionSession(session: GameSession): GameSession {
+  assertActive(session, "Cannot start an ended session.");
+  assertCoupleQuestion(session, "Cannot start a non Couple Questions session.");
+
+  if (session.phase !== "lobby") {
+    return session;
+  }
+
+  if (session.players.length < coupleQuestionMinPlayers) {
+    throw new DomainValidationError("Couple Questions needs at least 1 player.");
+  }
+
+  return {
+    ...session,
+    phase: "prompt_revealed",
+    currentPrompt: undefined,
+    promptQueue: [],
+    promptQueueType: coupleQuestionMode,
     choiceVotes: [],
   };
 }
@@ -525,8 +611,22 @@ function assertTruthOrDare(session: GameSession, message: string): void {
   }
 }
 
+function assertCoupleQuestion(session: GameSession, message: string): void {
+  if (session.mode !== coupleQuestionMode) {
+    throw new DomainValidationError(message);
+  }
+}
+
 function assertThisOrThat(session: GameSession, message: string): void {
   if (session.mode !== thisOrThatMode) {
     throw new DomainValidationError(message);
   }
+}
+
+function isLobbyMode(mode: GameMode): boolean {
+  return (
+    mode === truthOrDareMode ||
+    mode === coupleQuestionMode ||
+    mode === thisOrThatMode
+  );
 }

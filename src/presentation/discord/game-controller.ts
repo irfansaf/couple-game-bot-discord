@@ -1,44 +1,62 @@
 import {
+  ActionRowBuilder,
   MessageFlags,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
   type ButtonInteraction,
   type ChatInputCommandInteraction,
   type Client,
   type Interaction,
+  type ModalSubmitInteraction,
 } from "discord.js";
 import { z } from "zod";
 
+import type { PrivateAnswerCoordinator } from "../../application/services/private-answer-coordinator";
 import type {
   GameAction,
   GameActionBlockedReason,
   HandleGameActionUseCase,
 } from "../../application/use-cases/handle-game-action";
+import type { GetGameSessionUseCase } from "../../application/use-cases/get-game-session";
 import type {
   StartGameSessionInput,
   StartGameSessionUseCase,
 } from "../../application/use-cases/start-game-session";
 import type { RefillPromptQueueUseCase } from "../../application/use-cases/refill-prompt-queue";
 import { gameModes, moods } from "../../domain/entities/prompt";
-import type { GameSession } from "../../domain/entities/game-session";
+import { coupleQuestionMode, type GameSession } from "../../domain/entities/game-session";
+import { createUserId } from "../../domain/value-objects/ids";
 import type { Logger } from "../../infrastructure/logging/logger";
 import { parseGameButtonId } from "./button-ids";
 import {
   buildEndedCard,
   buildLoadingCard,
+  buildPrivateAnswerRevealCard,
+  buildPrivateAnswerWaitingCard,
   buildPromptCard,
   buildSessionStateCard,
 } from "./game-card";
+import {
+  createPrivateAnswerModalId,
+  parsePrivateAnswerModalId,
+  privateAnswerInputId,
+} from "./private-answer-ids";
 
 const startOptionsSchema = z.object({
   mode: z.enum(gameModes).optional(),
   mood: z.enum(moods).optional(),
   intensity: z.number().int().min(1).max(3).optional(),
 });
+const privateAnswerSchema = z.string().trim().min(1).max(800);
 
 export class DiscordGameController {
   public constructor(
     private readonly startGameSession: StartGameSessionUseCase,
+    private readonly getGameSession: GetGameSessionUseCase,
     private readonly handleGameAction: HandleGameActionUseCase,
     private readonly refillPromptQueue: RefillPromptQueueUseCase,
+    private readonly privateAnswers: PrivateAnswerCoordinator,
     private readonly logger: Logger,
   ) {}
 
@@ -57,6 +75,11 @@ export class DiscordGameController {
 
       if (interaction.isButton()) {
         await this.handleButton(interaction);
+        return;
+      }
+
+      if (interaction.isModalSubmit()) {
+        await this.handleModalSubmit(interaction);
       }
     } catch (error) {
       this.logger.error("Discord interaction failed.", {
@@ -134,6 +157,11 @@ export class DiscordGameController {
       return;
     }
 
+    if (parsed.action === "answer_private") {
+      await this.handlePrivateAnswerButton(interaction, parsed.sessionId);
+      return;
+    }
+
     const loadingCard = buildLoadingCard(
       parsed.sessionId,
       loadingLabelForAction(parsed.action),
@@ -200,6 +228,7 @@ export class DiscordGameController {
     }
 
     if (output.status === "ended") {
+      this.privateAnswers.clearSession(output.session.id);
       const card = buildEndedCard(output.session);
 
       await interaction.editReply({
@@ -238,12 +267,168 @@ export class DiscordGameController {
 
     const card = buildPromptCard(output.session, output.prompt);
 
+    this.privateAnswers.clearSession(output.session.id);
+
     await interaction.editReply({
       embeds: card.embeds,
       components: card.components,
     });
 
     this.refillQueueInBackground(output.session.id);
+  }
+
+  private async handlePrivateAnswerButton(
+    interaction: ButtonInteraction,
+    sessionId: string,
+  ): Promise<void> {
+    const output = await this.getGameSession.execute({ sessionId });
+
+    if (output.status === "missing_session") {
+      await interaction.reply({
+        content: "I cannot find that game anymore. Start a fresh one with `/game start`.",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    const session = output.session;
+
+    if (session.mode !== coupleQuestionMode || session.currentPrompt === undefined) {
+      await interaction.reply({
+        content: "Private answers are available on Couple Questions prompts.",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    const actorUserId = createUserId(interaction.user.id);
+
+    if (!session.players.includes(actorUserId)) {
+      await interaction.reply({
+        content: "Join this session before answering privately.",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    const answerInput = new TextInputBuilder()
+      .setCustomId(privateAnswerInputId)
+      .setLabel("Your private answer")
+      .setStyle(TextInputStyle.Paragraph)
+      .setRequired(true)
+      .setMaxLength(800);
+    const modal = new ModalBuilder()
+      .setCustomId(createPrivateAnswerModalId(session.id, session.currentPrompt.id))
+      .setTitle("Private Answer")
+      .addComponents(
+        new ActionRowBuilder<TextInputBuilder>().addComponents(answerInput),
+      );
+
+    await interaction.showModal(modal);
+  }
+
+  private async handleModalSubmit(
+    interaction: ModalSubmitInteraction,
+  ): Promise<void> {
+    const parsed = parsePrivateAnswerModalId(interaction.customId);
+
+    if (parsed === null) {
+      return;
+    }
+
+    const answerResult = privateAnswerSchema.safeParse(
+      interaction.fields.getTextInputValue(privateAnswerInputId),
+    );
+
+    if (!answerResult.success) {
+      await interaction.reply({
+        content: "Write at least a few words before locking it in.",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    const output = await this.getGameSession.execute({ sessionId: parsed.sessionId });
+
+    if (output.status === "missing_session") {
+      await interaction.reply({
+        content: "I cannot find that game anymore. Start a fresh one with `/game start`.",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    const session = output.session;
+    const prompt = session.currentPrompt;
+    const actorUserId = createUserId(interaction.user.id);
+
+    if (
+      session.mode !== coupleQuestionMode ||
+      prompt === undefined ||
+      prompt.id !== parsed.promptId
+    ) {
+      await interaction.reply({
+        content: "That prompt already moved on. Use the current card instead.",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    if (!session.players.includes(actorUserId)) {
+      await interaction.reply({
+        content: "Join this session before answering privately.",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    const targetCount = Math.max(1, session.players.length);
+    const privateAnswerOutput = this.privateAnswers.submit({
+      sessionId: session.id,
+      promptId: prompt.id,
+      userId: actorUserId,
+      answer: answerResult.data,
+      targetCount,
+    });
+
+    if (privateAnswerOutput.status === "already_revealed") {
+      await interaction.reply({
+        content: "This private answer round has already revealed.",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    if (!interaction.isFromMessage()) {
+      await interaction.reply({
+        content: "Answer locked in.",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    const card = privateAnswerOutput.status === "complete"
+      ? buildPrivateAnswerRevealCard(session, prompt, privateAnswerOutput.answers)
+      : buildPrivateAnswerWaitingCard(
+          session,
+          prompt,
+          privateAnswerOutput.submittedCount,
+          privateAnswerOutput.targetCount,
+        );
+
+    await interaction.deferUpdate();
+    await interaction.message.edit({
+      embeds: card.embeds,
+      components: card.components,
+    });
+    await interaction.followUp({
+      content: privateAnswerOutput.status === "complete"
+        ? "Everyone answered. Reveal is up."
+        : `Answer locked in. Waiting for ${
+            privateAnswerOutput.targetCount - privateAnswerOutput.submittedCount
+          } more.`,
+      flags: MessageFlags.Ephemeral,
+    });
   }
 
   private refillQueueInBackground(sessionId: string): void {
@@ -260,6 +445,7 @@ function loadingLabelForAction(action: GameAction): string {
     join: "Joining the lobby...",
     leave: "Leaving the lobby...",
     start_tod: "Starting Truth or Dare...",
+    start_couple_question: "Starting Couple Questions...",
     start_this_or_that: "Starting This or That...",
     rules: "Opening the rules...",
     set_context_meet: "Setting dares for in-person play...",
@@ -274,6 +460,7 @@ function loadingLabelForAction(action: GameAction): string {
     softer: "Making it softer...",
     spicier: "Turning it up gently...",
     deeper: "Finding a deeper question...",
+    answer_private: "Opening private answer...",
     pick_left: "Noting your pick...",
     pick_right: "Noting your pick...",
     answered: "Marking that truth answered...",
@@ -329,6 +516,10 @@ function formatModeName(session: GameSession): string {
 
   if (session.mode === "truth_or_dare") {
     return "Truth or Dare";
+  }
+
+  if (session.mode === "couple_question") {
+    return "Couple Questions";
   }
 
   return "This game";

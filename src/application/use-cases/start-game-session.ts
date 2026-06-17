@@ -1,4 +1,5 @@
 import {
+  coupleQuestionMode,
   createGameSession,
   dequeuePrompt,
   thisOrThatMode,
@@ -59,7 +60,11 @@ export class StartGameSessionUseCase {
     };
 
     const session = createGameSession(sessionInput);
-    if (session.mode === truthOrDareMode || session.mode === thisOrThatMode) {
+    if (
+      session.mode === truthOrDareMode ||
+      session.mode === coupleQuestionMode ||
+      session.mode === thisOrThatMode
+    ) {
       await this.sessions.save(session);
 
       return { status: "session", session };

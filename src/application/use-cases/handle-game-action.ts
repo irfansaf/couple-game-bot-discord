@@ -2,16 +2,22 @@ import {
   advanceTruthOrDareTurn,
   changeGameSessionMode,
   chooseTruthOrDarePromptType,
+  coupleQuestionMaxPlayers,
+  coupleQuestionMinPlayers,
+  coupleQuestionMode,
   currentTruthOrDarePlayer,
   dequeuePrompt,
   endGameSession,
+  joinCoupleQuestionSession,
   joinThisOrThatSession,
   joinTruthOrDareSession,
+  leaveCoupleQuestionSession,
   leaveThisOrThatSession,
   leaveTruthOrDareSession,
   recordThisOrThatVote,
   setTruthOrDarePlayContext,
   shiftGameSessionIntensity,
+  startCoupleQuestionSession,
   startThisOrThatSession,
   startTruthOrDareSession,
   thisOrThatMaxPlayers,
@@ -33,6 +39,7 @@ export const gameActions = [
   "join",
   "leave",
   "start_tod",
+  "start_couple_question",
   "start_this_or_that",
   "rules",
   "set_context_meet",
@@ -47,6 +54,7 @@ export const gameActions = [
   "softer",
   "spicier",
   "deeper",
+  "answer_private",
   "pick_left",
   "pick_right",
   "answered",
@@ -143,6 +151,10 @@ export class HandleGameActionUseCase {
       return this.handleTruthOrDareAction(session, input);
     }
 
+    if (session.mode === coupleQuestionMode) {
+      return this.handleCoupleQuestionAction(session, input);
+    }
+
     if (session.mode === thisOrThatMode) {
       return this.handleThisOrThatAction(session, input);
     }
@@ -151,8 +163,10 @@ export class HandleGameActionUseCase {
       return { status: "blocked", reason: "wrong_phase", session };
     }
 
-    if (input.action === thisOrThatMode) {
-      const nextSession = changeGameSessionMode(session, thisOrThatMode);
+    const selectedMode = gameActionToMode(input.action);
+
+    if (selectedMode !== null) {
+      const nextSession = changeGameSessionMode(session, selectedMode);
 
       await this.sessions.save(nextSession);
 
@@ -343,6 +357,101 @@ export class HandleGameActionUseCase {
     return { status: "blocked", reason: "wrong_phase", session };
   }
 
+  private async handleCoupleQuestionAction(
+    session: GameSession,
+    input: HandleGameActionInput,
+  ): Promise<HandleGameActionOutput> {
+    const actorUserId = createUserId(input.userId);
+
+    if (input.action === "rules") {
+      return { status: "state", session, view: "rules" };
+    }
+
+    if (input.action === "join") {
+      if (session.phase !== "lobby") {
+        return { status: "blocked", reason: "not_in_lobby", session };
+      }
+
+      if (session.players.includes(actorUserId)) {
+        return { status: "blocked", reason: "already_joined", session };
+      }
+
+      if (session.players.length >= coupleQuestionMaxPlayers) {
+        return { status: "blocked", reason: "session_full", session };
+      }
+
+      const joinedSession = joinCoupleQuestionSession(session, actorUserId);
+
+      await this.sessions.save(joinedSession);
+
+      return { status: "state", session: joinedSession };
+    }
+
+    if (input.action === "leave") {
+      if (!session.players.includes(actorUserId)) {
+        return { status: "blocked", reason: "not_a_player", session };
+      }
+
+      if (session.phase !== "lobby") {
+        return { status: "blocked", reason: "not_in_lobby", session };
+      }
+
+      const leftSession = leaveCoupleQuestionSession(session, actorUserId, input.now);
+
+      await this.sessions.save(leftSession);
+
+      return leftSession.status === "ended"
+        ? { status: "ended", session: leftSession }
+        : { status: "state", session: leftSession };
+    }
+
+    if (input.action === "start_couple_question") {
+      if (session.hostUserId !== actorUserId) {
+        return { status: "blocked", reason: "not_host", session };
+      }
+
+      if (session.phase !== "lobby") {
+        return { status: "blocked", reason: "not_in_lobby", session };
+      }
+
+      if (session.players.length < coupleQuestionMinPlayers) {
+        return { status: "blocked", reason: "not_enough_players", session };
+      }
+
+      return this.revealCoupleQuestionPrompt(startCoupleQuestionSession(session));
+    }
+
+    if (
+      input.action === "next" ||
+      input.action === "skip" ||
+      input.action === "softer" ||
+      input.action === "spicier" ||
+      input.action === "deeper"
+    ) {
+      if (!session.players.includes(actorUserId)) {
+        return { status: "blocked", reason: "not_a_player", session };
+      }
+
+      if (session.phase !== "prompt_revealed") {
+        return { status: "blocked", reason: "wrong_phase", session };
+      }
+
+      const selectedSession =
+        input.action === "softer" ||
+        input.action === "spicier" ||
+        input.action === "deeper"
+          ? shiftGameSessionIntensity(
+              session,
+              input.action === "softer" ? "softer" : "spicier",
+            )
+          : session;
+
+      return this.revealCoupleQuestionPrompt(selectedSession);
+    }
+
+    return { status: "blocked", reason: "wrong_phase", session };
+  }
+
   private async handleThisOrThatAction(
     session: GameSession,
     input: HandleGameActionInput,
@@ -500,6 +609,27 @@ export class HandleGameActionUseCase {
       prompt: dequeued.prompt,
     };
   }
+
+  private async revealCoupleQuestionPrompt(
+    session: GameSession,
+  ): Promise<HandleGameActionOutput> {
+    const queuedSession = session.promptQueue.length === 0
+      ? await this.queueRefiller.fillToTarget(session)
+      : session;
+    const dequeued = dequeuePrompt(queuedSession);
+
+    if (dequeued === null) {
+      return { status: "missing_prompt", session: queuedSession };
+    }
+
+    await this.sessions.save(dequeued.session);
+
+    return {
+      status: "prompt",
+      session: dequeued.session,
+      prompt: dequeued.prompt,
+    };
+  }
 }
 
 function applyPromptGameAction(session: GameSession, action: GameAction): GameSession {
@@ -540,6 +670,7 @@ function isTruthOrDareOnlyAction(action: GameAction): boolean {
     action === "join" ||
     action === "leave" ||
     action === "start_tod" ||
+    action === "start_couple_question" ||
     action === "start_this_or_that" ||
     action === "rules" ||
     action === "set_context_meet" ||
@@ -548,6 +679,7 @@ function isTruthOrDareOnlyAction(action: GameAction): boolean {
     action === "dare" ||
     action === "random" ||
     action === "answered" ||
+    action === "answer_private" ||
     action === "done" ||
     action === "alternative_dare" ||
     action === "next_turn"

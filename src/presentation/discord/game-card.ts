@@ -6,6 +6,8 @@ import {
 } from "discord.js";
 
 import {
+  coupleQuestionMaxPlayers,
+  coupleQuestionMode,
   currentTruthOrDarePlayer,
   type PlayContext,
   thisOrThatMaxPlayers,
@@ -17,6 +19,7 @@ import {
 import type { Mood, Prompt, PromptType } from "../../domain/entities/prompt";
 import { intensityValue } from "../../domain/value-objects/intensity";
 import { createGameButtonId } from "./button-ids";
+import type { PrivateAnswerSubmission } from "../../application/services/private-answer-coordinator";
 import type { GameAction } from "../../application/use-cases/handle-game-action";
 
 export interface GameCard {
@@ -33,7 +36,7 @@ export function buildPromptCard(session: GameSession, prompt: Prompt): GameCard 
     return buildTruthOrDarePromptCard(session, prompt);
   }
 
-  if (session.mode === "couple_question") {
+  if (session.mode === coupleQuestionMode) {
     return buildCoupleQuestionPromptCard(session, prompt);
   }
 
@@ -64,10 +67,57 @@ export function buildPromptCard(session: GameSession, prompt: Prompt): GameCard 
   };
 }
 
+export function buildPrivateAnswerWaitingCard(
+  session: GameSession,
+  prompt: Prompt,
+  submittedCount: number,
+  targetCount: number,
+): GameCard {
+  const embed = buildCoupleQuestionEmbed(session, prompt).addFields({
+    name: "Private answers",
+    value: `${submittedCount}/${targetCount} submitted.`,
+  });
+
+  return {
+    embeds: [embed],
+    components: buildCoupleQuestionButtons(session.id, false),
+  };
+}
+
+export function buildPrivateAnswerRevealCard(
+  session: GameSession,
+  prompt: Prompt,
+  answers: readonly PrivateAnswerSubmission[],
+): GameCard {
+  const embed = buildCoupleQuestionEmbed(session, prompt);
+
+  for (const answer of answers) {
+    embed.addFields({
+      name: `${mention(answer.userId)} answered`,
+      value: answer.answer,
+    });
+  }
+
+  return {
+    embeds: [embed],
+    components: buildCoupleQuestionRevealButtons(session.id, false),
+  };
+}
+
 function buildCoupleQuestionPromptCard(
   session: GameSession,
   prompt: Prompt,
 ): GameCard {
+  return {
+    embeds: [buildCoupleQuestionEmbed(session, prompt)],
+    components: buildCoupleQuestionButtons(session.id, false),
+  };
+}
+
+function buildCoupleQuestionEmbed(
+  session: GameSession,
+  prompt: Prompt,
+): EmbedBuilder {
   const embed = new EmbedBuilder()
     .setTitle(`${formatPromptType(prompt.type)} - ${formatMood(prompt.mood)}`)
     .setDescription(prompt.text)
@@ -85,10 +135,7 @@ function buildCoupleQuestionPromptCard(
     });
   }
 
-  return {
-    embeds: [embed],
-    components: buildCoupleQuestionButtons(session.id, false),
-  };
+  return embed;
 }
 
 function buildThisOrThatPromptCard(
@@ -199,12 +246,71 @@ function buildThisOrThatStateCard(
   };
 }
 
+function buildCoupleQuestionStateCard(
+  session: GameSession,
+  options: SessionCardOptions,
+): GameCard {
+  const embed = new EmbedBuilder().setColor(0xf4a7bb).setFooter({
+    text: `Players ${session.players.length}/${coupleQuestionMaxPlayers} - Intensity ${intensityValue(
+      session.intensity,
+    )}`,
+  });
+
+  if (session.phase === "lobby") {
+    embed
+      .setTitle("Couple Questions lobby")
+      .setDescription(
+        [
+          `Host: ${mention(session.hostUserId)}`,
+          `Players: ${formatPlayers(session.players)}`,
+        ].join("\n"),
+      );
+
+    if (options.view === "rules") {
+      embed.addFields(
+        {
+          name: "Rules",
+          value:
+            "Join the lobby, then the host can start with 1 or more players. Anyone who joined can steer the deck.",
+        },
+        {
+          name: "Private answers",
+          value:
+            "Answer opens a private modal. The reveal waits for every joined player in this session.",
+        },
+      );
+    }
+
+    return {
+      embeds: [embed],
+      components: buildCoupleQuestionLobbyButtons(session.id, false),
+    };
+  }
+
+  if (session.currentPrompt !== undefined) {
+    return buildCoupleQuestionPromptCard(session, session.currentPrompt);
+  }
+
+  embed
+    .setTitle("Couple Questions")
+    .setDescription("Getting the first question ready.");
+
+  return {
+    embeds: [embed],
+    components: buildCoupleQuestionButtons(session.id, false),
+  };
+}
+
 export function buildSessionStateCard(
   session: GameSession,
   options: SessionCardOptions = {},
 ): GameCard {
   if (session.mode === truthOrDareMode) {
     return buildTruthOrDareStateCard(session, options);
+  }
+
+  if (session.mode === coupleQuestionMode) {
+    return buildCoupleQuestionStateCard(session, options);
   }
 
   if (session.mode === thisOrThatMode) {
@@ -380,6 +486,45 @@ function buildQuickPromptButtons(
 }
 
 function buildCoupleQuestionButtons(
+  sessionId: string,
+  disabled: boolean,
+): ActionRowBuilder<ButtonBuilder>[] {
+  return [
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      gameButton("answer_private", sessionId, "Answer", ButtonStyle.Success, disabled),
+      gameButton("next", sessionId, "Next", ButtonStyle.Primary, disabled),
+      gameButton("skip", sessionId, "Skip", ButtonStyle.Secondary, disabled),
+      gameButton("softer", sessionId, "Softer", ButtonStyle.Secondary, disabled),
+      gameButton("deeper", sessionId, "Deeper", ButtonStyle.Secondary, disabled),
+    ),
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      gameButton("end", sessionId, "End", ButtonStyle.Danger, disabled),
+    ),
+  ];
+}
+
+function buildCoupleQuestionLobbyButtons(
+  sessionId: string,
+  disabled: boolean,
+): ActionRowBuilder<ButtonBuilder>[] {
+  return [
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      gameButton("join", sessionId, "Join", ButtonStyle.Success, disabled),
+      gameButton("leave", sessionId, "Leave", ButtonStyle.Secondary, disabled),
+      gameButton(
+        "start_couple_question",
+        sessionId,
+        "Start",
+        ButtonStyle.Primary,
+        disabled,
+      ),
+      gameButton("rules", sessionId, "Rules", ButtonStyle.Secondary, disabled),
+      gameButton("end", sessionId, "End", ButtonStyle.Danger, disabled),
+    ),
+  ];
+}
+
+function buildCoupleQuestionRevealButtons(
   sessionId: string,
   disabled: boolean,
 ): ActionRowBuilder<ButtonBuilder>[] {
