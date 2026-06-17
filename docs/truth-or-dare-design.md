@@ -129,19 +129,18 @@ AI should generate prompts for the current state only:
 
 Add or derive:
 
-- `gameKind`: `truth_or_dare` vs other future game types.
+- `mode`: `truth_or_dare` vs standalone prompt modes.
 - `players`: ordered active player IDs.
 - `hostUserId`.
-- `currentPlayerIndex`.
-- `roundNumber`.
-- `state`: `lobby`, `choosing`, `prompt_revealed`, `ended`.
+- `currentTurnIndex`.
+- `phase`: `lobby`, `turn_choice`, `prompt_revealed`.
 - `currentPrompt`.
-- `currentChoice`: `truth` or `dare`.
+- `promptQueueType`: `truth` or `dare` while a selected prompt type is queued.
 - `turnHistory`: recent choices per player for rule enforcement.
 - `maxPlayers`: default 8.
 - `rules`: skip policy, max same choice streak, dare involvement limits.
 
-The current `GameSession` model already has some compatible fields, but it needs state and turn ownership before this mode can feel correct.
+The MVP implementation now stores the core lobby, host, turn, phase, current prompt, and prompt queue type fields. Turn history and custom rules are still future upgrades.
 
 ## Acceptance Criteria
 
@@ -159,10 +158,10 @@ The current `GameSession` model already has some compatible fields, but it needs
 
 ## Recommended Implementation Order
 
-1. Add `gameKind`, session `state`, `hostUserId`, `currentPlayerIndex`, `roundNumber`, and `currentPrompt`.
-2. Add lobby actions: Join, Leave, Start, Rules, End.
-3. Add active turn actions: Truth, Dare, Random, Skip Turn.
-4. Add prompt resolution actions: Answered/Done, Softer, Alternative Dare, Skip, Next Turn.
-5. Update Discord card rendering to choose controls by state.
-6. Update AI/static prompt queue to be scoped by current Truth/Dare choice.
-7. Add tests for lobby limits, turn ownership, mode-specific controls, and state transitions.
+1. Done: Add session phase, `hostUserId`, `currentTurnIndex`, `currentPrompt`, and `promptQueueType`.
+2. Done: Add lobby actions: Join, Leave, Start, Rules, End.
+3. Done: Add active turn actions: Truth, Dare, Random, Skip Turn.
+4. Done: Add prompt resolution actions: Answered/Done, Softer, Alternative Dare, Skip, Next Turn.
+5. Done: Update Discord card rendering to choose controls by phase.
+6. Done: Scope AI/static prompt queue by current Truth/Dare choice.
+7. Done: Add tests for lobby minimums, turn ownership, prompt reveal, and state transitions.

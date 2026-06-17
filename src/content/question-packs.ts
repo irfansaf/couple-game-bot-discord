@@ -1,8 +1,8 @@
-import type { GameMode, Mood } from "../domain/entities/prompt";
+import type { Mood, PromptType } from "../domain/entities/prompt";
 
 export interface StaticPromptTemplate {
   readonly id: string;
-  readonly type: GameMode;
+  readonly type: PromptType;
   readonly mood: Mood;
   readonly intensity: 1 | 2 | 3;
   readonly text: string;

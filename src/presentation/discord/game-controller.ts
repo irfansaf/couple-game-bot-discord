@@ -9,6 +9,7 @@ import { z } from "zod";
 
 import type {
   GameAction,
+  GameActionBlockedReason,
   HandleGameActionUseCase,
 } from "../../application/use-cases/handle-game-action";
 import type {
@@ -17,9 +18,15 @@ import type {
 } from "../../application/use-cases/start-game-session";
 import type { RefillPromptQueueUseCase } from "../../application/use-cases/refill-prompt-queue";
 import { gameModes, moods } from "../../domain/entities/prompt";
+import type { GameSession } from "../../domain/entities/game-session";
 import type { Logger } from "../../infrastructure/logging/logger";
 import { parseGameButtonId } from "./button-ids";
-import { buildEndedCard, buildLoadingCard, buildPromptCard } from "./game-card";
+import {
+  buildEndedCard,
+  buildLoadingCard,
+  buildPromptCard,
+  buildSessionStateCard,
+} from "./game-card";
 
 const startOptionsSchema = z.object({
   mode: z.enum(gameModes).optional(),
@@ -106,14 +113,18 @@ export class DiscordGameController {
         : { intensity: options.intensity }),
     };
     const output = await this.startGameSession.execute(input);
-    const card = buildPromptCard(output.session, output.prompt);
+    const card = output.status === "prompt"
+      ? buildPromptCard(output.session, output.prompt)
+      : buildSessionStateCard(output.session);
 
     await interaction.editReply({
       embeds: card.embeds,
       components: card.components,
     });
 
-    this.refillQueueInBackground(output.session.id);
+    if (output.status === "prompt") {
+      this.refillQueueInBackground(output.session.id);
+    }
   }
 
   private async handleButton(interaction: ButtonInteraction): Promise<void> {
@@ -133,7 +144,10 @@ export class DiscordGameController {
       components: loadingCard.components,
     });
 
-    const output = await this.handleGameAction.execute(parsed);
+    const output = await this.handleGameAction.execute({
+      ...parsed,
+      userId: interaction.user.id,
+    });
 
     if (output.status === "missing_session") {
       await interaction.followUp({
@@ -144,6 +158,12 @@ export class DiscordGameController {
     }
 
     if (output.status === "inactive_session") {
+      const card = buildCurrentSessionCard(output.session);
+
+      await interaction.editReply({
+        embeds: card.embeds,
+        components: card.components,
+      });
       await interaction.followUp({
         content: "That session already ended. Start a fresh one with `/game start`.",
         flags: MessageFlags.Ephemeral,
@@ -152,6 +172,12 @@ export class DiscordGameController {
     }
 
     if (output.status === "missing_prompt") {
+      const card = buildCurrentSessionCard(output.session);
+
+      await interaction.editReply({
+        embeds: card.embeds,
+        components: card.components,
+      });
       await interaction.followUp({
         content: "No matching prompt is available yet. Try another button.",
         flags: MessageFlags.Ephemeral,
@@ -159,8 +185,35 @@ export class DiscordGameController {
       return;
     }
 
+    if (output.status === "blocked") {
+      const card = buildCurrentSessionCard(output.session);
+
+      await interaction.editReply({
+        embeds: card.embeds,
+        components: card.components,
+      });
+      await interaction.followUp({
+        content: blockedMessage(output.reason, output.session),
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
     if (output.status === "ended") {
       const card = buildEndedCard(output.session);
+
+      await interaction.editReply({
+        embeds: card.embeds,
+        components: card.components,
+      });
+      return;
+    }
+
+    if (output.status === "state") {
+      const card = buildSessionStateCard(
+        output.session,
+        output.view === undefined ? {} : { view: output.view },
+      );
 
       await interaction.editReply({
         embeds: card.embeds,
@@ -190,18 +243,58 @@ export class DiscordGameController {
 
 function loadingLabelForAction(action: GameAction): string {
   const labels = {
+    join: "Joining the lobby...",
+    leave: "Leaving the lobby...",
+    start_tod: "Starting Truth or Dare...",
+    rules: "Opening the rules...",
     truth: "Finding a good truth...",
     dare: "Finding a playful dare...",
+    random: "Flipping between truth and dare...",
     couple_question: "Finding a couple question...",
     this_or_that: "Finding a this-or-that...",
     next: "Getting the next prompt ready...",
     skip: "Skipping to another prompt...",
     softer: "Making it softer...",
     spicier: "Turning it up gently...",
+    answered: "Marking that truth answered...",
+    done: "Marking that dare done...",
+    alternative_dare: "Finding an alternate dare...",
+    next_turn: "Moving to the next turn...",
     end: "Wrapping up the session...",
   } satisfies Record<string, string>;
 
   return labels[action] ?? "Getting the next prompt ready...";
+}
+
+function buildCurrentSessionCard(session: GameSession) {
+  if (session.currentPrompt !== undefined && session.phase === "prompt_revealed") {
+    return buildPromptCard(session, session.currentPrompt);
+  }
+
+  return buildSessionStateCard(session);
+}
+
+function blockedMessage(
+  reason: GameActionBlockedReason,
+  session: GameSession,
+): string {
+  const currentPlayer = session.players[session.currentTurnIndex];
+  const currentPlayerText = currentPlayer === undefined
+    ? "the current player"
+    : `<@${currentPlayer}>`;
+
+  const messages = {
+    already_joined: "You are already in this lobby.",
+    session_full: "This lobby is full. Max 8 players for now.",
+    not_in_lobby: "That action only works while the lobby is still open.",
+    not_enough_players: "Truth or Dare needs at least 2 players before starting.",
+    not_host: "Only the host can start this lobby.",
+    not_a_player: "Join the game before using that button.",
+    not_current_player: `It is ${currentPlayerText}'s turn right now.`,
+    wrong_phase: "That button does not match the current game step anymore.",
+  } satisfies Record<GameActionBlockedReason, string>;
+
+  return messages[reason];
 }
 
 function parseStartOptions(interaction: ChatInputCommandInteraction) {

@@ -1,6 +1,7 @@
 import {
   createGameSession,
   dequeuePrompt,
+  truthOrDareMode,
   type GameSession,
 } from "../../domain/entities/game-session";
 import type { GameMode, Mood, Prompt } from "../../domain/entities/prompt";
@@ -24,10 +25,16 @@ export interface StartGameSessionInput {
   readonly now?: Date;
 }
 
-export interface StartGameSessionOutput {
-  readonly session: GameSession;
-  readonly prompt: Prompt;
-}
+export type StartGameSessionOutput =
+  | {
+      readonly status: "prompt";
+      readonly session: GameSession;
+      readonly prompt: Prompt;
+    }
+  | {
+      readonly status: "session";
+      readonly session: GameSession;
+    };
 
 export class StartGameSessionUseCase {
   public constructor(
@@ -51,6 +58,12 @@ export class StartGameSessionUseCase {
     };
 
     const session = createGameSession(sessionInput);
+    if (session.mode === truthOrDareMode) {
+      await this.sessions.save(session);
+
+      return { status: "session", session };
+    }
+
     const queuedSession = await this.queueRefiller.fillToTarget(session);
     const dequeued = dequeuePrompt(queuedSession);
 
@@ -60,6 +73,6 @@ export class StartGameSessionUseCase {
 
     await this.sessions.save(dequeued.session);
 
-    return { session: dequeued.session, prompt: dequeued.prompt };
+    return { status: "prompt", session: dequeued.session, prompt: dequeued.prompt };
   }
 }

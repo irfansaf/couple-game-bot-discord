@@ -1,8 +1,8 @@
-import type { GameMode, Mood, Prompt } from "../../domain/entities/prompt";
+import type { Mood, Prompt, PromptType } from "../../domain/entities/prompt";
 import type { Intensity } from "../../domain/value-objects/intensity";
 
 export interface GenerateQuestionInput {
-  readonly type: GameMode;
+  readonly type: PromptType;
   readonly mood: Mood;
   readonly intensity: Intensity;
   readonly recentQuestions: readonly string[];

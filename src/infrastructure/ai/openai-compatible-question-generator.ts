@@ -9,13 +9,13 @@ import {
   buildBatchQuestionGenerationMessages,
   type ChatMessage,
 } from "../../content/ai-prompt-template";
-import { gameModes, moods, type Prompt } from "../../domain/entities/prompt";
+import { moods, promptTypes, type Prompt } from "../../domain/entities/prompt";
 import { createPromptId } from "../../domain/value-objects/ids";
 import { createIntensity } from "../../domain/value-objects/intensity";
 import { PromptSafetyPolicy } from "../../domain/services/prompt-safety-policy";
 
 const generatedQuestionSchema = z.object({
-  type: z.enum(gameModes),
+  type: z.enum(promptTypes),
   mood: z.enum(moods),
   intensity: z.number().int().min(1).max(3),
   question: z.string().min(5).max(280),

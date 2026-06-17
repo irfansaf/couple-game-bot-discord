@@ -15,6 +15,13 @@
       "when": 1781707326360,
       "tag": "0001_massive_mercury",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1781708347875,
+      "tag": "0002_cold_trauma",
+      "breakpoints": true
     }
   ]
 }

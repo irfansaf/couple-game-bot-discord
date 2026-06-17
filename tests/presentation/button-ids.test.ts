@@ -18,6 +18,18 @@ describe("game button ids", () => {
     });
   });
 
+  it("round-trips Truth or Dare session buttons", () => {
+    const buttonId = createGameButtonId(
+      "start_tod",
+      "019ed5c9-03f7-7dc7-8660-f41abdeca21d",
+    );
+
+    expect(parseGameButtonId(buttonId)).toEqual({
+      action: "start_tod",
+      sessionId: "019ed5c9-03f7-7dc7-8660-f41abdeca21d",
+    });
+  });
+
   it("rejects unknown button ids", () => {
     expect(parseGameButtonId("game:unknown:session")).toBeNull();
     expect(parseGameButtonId("other:truth:session")).toBeNull();

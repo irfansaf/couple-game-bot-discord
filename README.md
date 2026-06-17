@@ -33,7 +33,9 @@ Start a session in Discord with:
 /game start mode:Couple Question mood:Cozy intensity:1
 ```
 
-All options are optional. During play, buttons can switch between Truth, Dare, Couple Question, and This/That.
+All options are optional. `Truth or Dare` starts as a lobby with Join, Leave, Start, Rules, and End controls. The host can start once 2-8 players have joined. During the active turn, only the current player chooses Truth, Dare, or Random, and the AI/static batch queue is scoped to that chosen prompt type.
+
+The standalone prompt modes still support quick prompt-card play for Couple Question, Truth, Dare, and This/That.
 
 ## Scripts
 

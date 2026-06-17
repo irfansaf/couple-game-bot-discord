@@ -25,6 +25,11 @@ describe("static game loop", () => {
       startedByUserId: "user-1",
     });
 
+    expect(output.status).toBe("prompt");
+    if (output.status !== "prompt") {
+      throw new Error("Expected prompt output.");
+    }
+
     expect(output.session.id).toBe("019ed5c9-03f7-7dc7-8660-f41abdeca21d");
     expect(output.session.status).toBe("active");
     expect(output.session.recentPromptIds).toEqual([output.prompt.id]);
@@ -48,6 +53,11 @@ describe("static game loop", () => {
       mood: "flirty_safe",
       intensity: 2,
     });
+
+    expect(output.status).toBe("prompt");
+    if (output.status !== "prompt") {
+      throw new Error("Expected prompt output.");
+    }
 
     expect(output.session.mode).toBe("this_or_that");
     expect(output.session.mood).toBe("flirty_safe");
@@ -78,10 +88,12 @@ describe("static game loop", () => {
     const firstTruth = await handleAction.execute({
       sessionId: started.session.id,
       action: "truth",
+      userId: "user-1",
     });
     const secondTruth = await handleAction.execute({
       sessionId: started.session.id,
       action: "truth",
+      userId: "user-1",
     });
 
     expect(firstTruth.status).toBe("prompt");
@@ -115,10 +127,12 @@ describe("static game loop", () => {
     const coupleQuestion = await handleAction.execute({
       sessionId: started.session.id,
       action: "couple_question",
+      userId: "user-1",
     });
     const thisOrThat = await handleAction.execute({
       sessionId: started.session.id,
       action: "this_or_that",
+      userId: "user-1",
     });
 
     expect(coupleQuestion.status).toBe("prompt");
@@ -130,6 +144,116 @@ describe("static game loop", () => {
 
     expect(coupleQuestion.prompt.type).toBe("couple_question");
     expect(thisOrThat.prompt.type).toBe("this_or_that");
+  });
+
+  it("runs Truth or Dare as a lobby and turn-based session", async () => {
+    const sessions = new InMemorySessionRepository();
+    const prompts = new StaticPromptCatalog();
+    const queueRefiller = new PromptQueueRefiller(prompts);
+    const startGameSession = new StartGameSessionUseCase(
+      sessions,
+      new FixedSessionIdGenerator("019ed5c9-03f7-7dc7-8660-f41abdeca21d"),
+      queueRefiller,
+    );
+    const handleAction = new HandleGameActionUseCase(sessions, queueRefiller);
+
+    const started = await startGameSession.execute({
+      guildId: "guild-1",
+      channelId: "channel-1",
+      startedByUserId: "user-1",
+      mode: "truth_or_dare",
+    });
+
+    expect(started.status).toBe("session");
+    expect(started.session.phase).toBe("lobby");
+    expect(started.session.promptQueue).toHaveLength(0);
+
+    const tooEarly = await handleAction.execute({
+      sessionId: started.session.id,
+      action: "start_tod",
+      userId: "user-1",
+    });
+
+    expect(tooEarly.status).toBe("blocked");
+    if (tooEarly.status !== "blocked") {
+      throw new Error("Expected blocked output.");
+    }
+    expect(tooEarly.reason).toBe("not_enough_players");
+
+    const joined = await handleAction.execute({
+      sessionId: started.session.id,
+      action: "join",
+      userId: "user-2",
+    });
+
+    expect(joined.status).toBe("state");
+    if (joined.status !== "state") {
+      throw new Error("Expected state output.");
+    }
+    expect(joined.session.players).toEqual(["user-1", "user-2"]);
+
+    const active = await handleAction.execute({
+      sessionId: started.session.id,
+      action: "start_tod",
+      userId: "user-1",
+    });
+
+    expect(active.status).toBe("state");
+    if (active.status !== "state") {
+      throw new Error("Expected state output.");
+    }
+    expect(active.session.phase).toBe("turn_choice");
+
+    const wrongPlayer = await handleAction.execute({
+      sessionId: started.session.id,
+      action: "truth",
+      userId: "user-2",
+    });
+
+    expect(wrongPlayer.status).toBe("blocked");
+    if (wrongPlayer.status !== "blocked") {
+      throw new Error("Expected blocked output.");
+    }
+    expect(wrongPlayer.reason).toBe("not_current_player");
+
+    const truth = await handleAction.execute({
+      sessionId: started.session.id,
+      action: "truth",
+      userId: "user-1",
+    });
+
+    expect(truth.status).toBe("prompt");
+    if (truth.status !== "prompt") {
+      throw new Error("Expected prompt output.");
+    }
+    expect(truth.prompt.type).toBe("truth");
+    expect(truth.session.phase).toBe("prompt_revealed");
+    expect(truth.session.promptQueue.length).toBeGreaterThan(0);
+
+    const answered = await handleAction.execute({
+      sessionId: started.session.id,
+      action: "answered",
+      userId: "user-1",
+    });
+
+    expect(answered.status).toBe("state");
+    if (answered.status !== "state") {
+      throw new Error("Expected state output.");
+    }
+    expect(answered.session.phase).toBe("turn_choice");
+    expect(answered.session.currentTurnIndex).toBe(1);
+
+    const dare = await handleAction.execute({
+      sessionId: started.session.id,
+      action: "dare",
+      userId: "user-2",
+    });
+
+    expect(dare.status).toBe("prompt");
+    if (dare.status !== "prompt") {
+      throw new Error("Expected prompt output.");
+    }
+    expect(dare.prompt.type).toBe("dare");
   });
 
   it("keeps comfort controls bounded and ends the session", async () => {
@@ -152,10 +276,12 @@ describe("static game loop", () => {
     const spicier = await handleAction.execute({
       sessionId: started.session.id,
       action: "spicier",
+      userId: "user-1",
     });
     const ended = await handleAction.execute({
       sessionId: started.session.id,
       action: "end",
+      userId: "user-1",
       now: new Date("2026-06-17T00:00:00.000Z"),
     });
 

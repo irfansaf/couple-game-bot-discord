@@ -1,4 +1,8 @@
-import { enqueuePrompts, type GameSession } from "../../domain/entities/game-session";
+import {
+  enqueuePrompts,
+  promptTypeForQueue,
+  type GameSession,
+} from "../../domain/entities/game-session";
 import type { PromptId } from "../../domain/value-objects/ids";
 import type { PromptCatalog } from "../ports/prompt-catalog";
 
@@ -12,6 +16,12 @@ export class PromptQueueRefiller {
     session: GameSession,
     targetSize = promptQueueTargetSize,
   ): Promise<GameSession> {
+    const promptType = promptTypeForQueue(session);
+
+    if (promptType === null) {
+      return session;
+    }
+
     const missingPromptCount = targetSize - session.promptQueue.length;
 
     if (missingPromptCount <= 0) {
@@ -20,7 +30,7 @@ export class PromptQueueRefiller {
 
     const prompts = await this.prompts.selectBatch(
       {
-        type: session.mode,
+        type: promptType,
         mood: session.mood,
         intensity: session.intensity,
         recentPromptIds: [
