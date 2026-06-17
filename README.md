@@ -1,0 +1,84 @@
+# CoupleGame Backend
+
+Private Discord bot backend for a couple-focused game host. This scaffold uses Bun, strict TypeScript, clean architecture boundaries, runtime validation with Zod, Discord.js at the presentation edge, an OpenAI-compatible AI adapter, and Postgres via Drizzle ORM plus the `postgres` driver.
+
+## Setup
+
+```bash
+bun install
+cp .env.example .env
+bun run db:up
+bun run db:migrate
+bun run typecheck
+bun run test
+```
+
+Fill in Discord and Postgres environment variables before running the bot process. AI variables are optional for the static-pack MVP, but `AI_API_KEY` and `AI_MODEL` must be configured together once AI prompt generation is enabled.
+
+For DeepSeek-compatible generation, set:
+
+```env
+AI_BASE_URL=https://api.deepseek.com
+AI_API_KEY=your-key
+AI_MODEL=deepseek-chat
+```
+
+When AI is configured, the game loop tries AI-generated prompts first and falls back to reviewed static prompts if the provider fails, times out, or returns invalid/unsafe content.
+
+The bot keeps a small prompt queue per session. It fills the queue in batches, shows the first prompt, and refills in the background when the queue gets low so most button clicks feel instant.
+
+Start a session in Discord with:
+
+```text
+/game start mode:Couple Question mood:Cozy intensity:1
+```
+
+All options are optional. During play, buttons can switch between Truth, Dare, Couple Question, and This/That.
+
+## Scripts
+
+- `bun run dev` starts the backend with Bun watch mode.
+- `bun run start` runs `src/main.ts`.
+- `bun run db:up` starts the local Postgres container.
+- `bun run db:down` stops the local Postgres container.
+- `bun run db:generate` generates Drizzle migrations from the Postgres schema.
+- `bun run db:migrate` applies Drizzle migrations to `DATABASE_URL`.
+- `bun run typecheck` checks strict TypeScript.
+- `bun run test` runs the test suite through Vitest.
+
+## Local Postgres
+
+The local database runs through Docker Compose:
+
+```bash
+bun run db:up
+bun run db:migrate
+```
+
+It runs PostgreSQL 18 and exposes Postgres on `localhost:5433` with the same credentials already shown in `.env.example`. PostgreSQL 18 is used so database-generated session IDs can use native timestamp-ordered `uuidv7()`.
+
+```env
+DATABASE_URL=postgres://postgres:postgres@localhost:5433/couplegame
+POSTGRES_SSL=false
+```
+
+## Discord Troubleshooting
+
+If startup fails with `401: Unauthorized` while registering commands, check:
+
+- `DISCORD_TOKEN` is the **Bot Token** from Developer Portal -> your app -> Bot.
+- `DISCORD_CLIENT_ID` is the **Application ID** from the same app.
+- The token was not copied from Client Secret, Public Key, or OAuth2 pages.
+- If you reset the bot token, update `.env` and restart Bun.
+
+If startup fails with `403`, reinvite the bot with both scopes: `bot` and `applications.commands`.
+
+## Architecture
+
+- `src/domain` contains game rules, value objects, entities, and domain errors.
+- `src/application` contains use cases and ports.
+- `src/infrastructure` implements adapters for Postgres, AI, Discord clients, and logging.
+- `src/presentation` maps Discord commands, buttons, and embeds to application behavior.
+- `src/config` validates runtime configuration.
+- `src/content` keeps static question packs and prompt/safety templates reviewable.
+- `src/shared` holds dependency-light utilities.

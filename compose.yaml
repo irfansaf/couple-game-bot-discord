@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: couplegame-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: couplegame
+    ports:
+      - "5433:5432"
+    volumes:
+      - couplegame_postgres18_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d couplegame"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  couplegame_postgres18_data:

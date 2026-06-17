@@ -1,0 +1,55 @@
+import type {
+  PromptCatalog,
+  PromptSelectionInput,
+} from "../../application/ports/prompt-catalog";
+import type { QuestionGenerator } from "../../application/ports/question-generator";
+import type { Logger } from "../logging/logger";
+
+export class AiFirstPromptCatalog implements PromptCatalog {
+  public constructor(
+    private readonly questionGenerator: QuestionGenerator,
+    private readonly fallback: PromptCatalog,
+    private readonly logger: Logger,
+  ) {}
+
+  public async select(input: PromptSelectionInput) {
+    try {
+      return await this.questionGenerator.generate({
+        type: input.type,
+        mood: input.mood,
+        intensity: input.intensity,
+        recentQuestions: input.recentPromptIds,
+      });
+    } catch (error) {
+      this.logger.warn("AI prompt generation failed. Falling back to static prompt.", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      return this.fallback.select(input);
+    }
+  }
+
+  public async selectBatch(input: PromptSelectionInput, count: number) {
+    try {
+      const prompts = await this.questionGenerator.generateBatch(
+        {
+          type: input.type,
+          mood: input.mood,
+          intensity: input.intensity,
+          recentQuestions: input.recentPromptIds,
+        },
+        count,
+      );
+
+      if (prompts.length > 0) {
+        return prompts;
+      }
+    } catch (error) {
+      this.logger.warn("AI prompt batch generation failed. Falling back to static prompts.", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    return this.fallback.selectBatch(input, count);
+  }
+}

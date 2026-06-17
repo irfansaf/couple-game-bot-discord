@@ -1,0 +1,1 @@
+ALTER TABLE "game_sessions" ADD COLUMN "prompt_queue" jsonb DEFAULT '[]'::jsonb NOT NULL;

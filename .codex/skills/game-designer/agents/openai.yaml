@@ -1,0 +1,4 @@
+interface:
+  display_name: "Game Designer"
+  short_description: "Design Discord-native game loops"
+  default_prompt: "Use $game-designer to translate a classic party game into a Discord bot flow."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Backend"
+  short_description: "Build Bun DDD bot services"
+  default_prompt: "Use $backend to implement a strict TypeScript Bun use case for the couple game bot."

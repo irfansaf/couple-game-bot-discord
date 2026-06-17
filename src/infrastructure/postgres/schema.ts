@@ -1,0 +1,17 @@
+import { sql } from "drizzle-orm";
+import { integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+
+export const gameSessions = pgTable("game_sessions", {
+  id: uuid("id").primaryKey().default(sql`uuidv7()`),
+  guildId: text("guild_id").notNull(),
+  channelId: text("channel_id").notNull(),
+  playerIds: jsonb("player_ids").$type<string[]>().notNull(),
+  mode: text("mode").notNull(),
+  mood: text("mood").notNull(),
+  intensity: integer("intensity").notNull(),
+  recentPromptIds: jsonb("recent_prompt_ids").$type<string[]>().notNull(),
+  promptQueue: jsonb("prompt_queue").$type<unknown[]>().notNull().default([]),
+  status: text("status").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  endedAt: timestamp("ended_at", { withTimezone: true }),
+});

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Product Owner"
+  short_description: "Shape the Discord couple game product"
+  default_prompt: "Use $product-owner to define the MVP scope for the couple game bot."

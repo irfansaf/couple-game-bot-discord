@@ -1,0 +1,4 @@
+interface:
+  display_name: "Discord UX"
+  short_description: "Design Discord game interactions"
+  default_prompt: "Use $discord-ux to design an embed and button flow for a couple game session."
