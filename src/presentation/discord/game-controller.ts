@@ -247,6 +247,8 @@ function loadingLabelForAction(action: GameAction): string {
     leave: "Leaving the lobby...",
     start_tod: "Starting Truth or Dare...",
     rules: "Opening the rules...",
+    set_context_meet: "Setting dares for in-person play...",
+    set_context_e_meet: "Setting dares for remote play...",
     truth: "Finding a good truth...",
     dare: "Finding a playful dare...",
     random: "Flipping between truth and dare...",

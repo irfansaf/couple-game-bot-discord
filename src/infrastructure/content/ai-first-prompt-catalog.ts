@@ -20,6 +20,7 @@ export class AiFirstPromptCatalog implements PromptCatalog {
         mood: input.mood,
         intensity: input.intensity,
         recentQuestions: input.recentPromptTexts,
+        playContext: input.playContext,
       });
     } catch (error) {
       this.logger.warn("AI prompt generation failed. Falling back to static prompt.", {
@@ -44,6 +45,7 @@ export class AiFirstPromptCatalog implements PromptCatalog {
           mood: input.mood,
           intensity: input.intensity,
           recentQuestions: input.recentPromptTexts,
+          playContext: input.playContext,
         },
         count,
       );
@@ -76,6 +78,7 @@ function promptSelectionLogContext(
     promptType: input.type,
     mood: input.mood,
     intensity: intensityValue(input.intensity),
+    playContext: input.playContext ?? null,
     recentPromptCount: input.recentPromptIds.length,
     recentPromptTextCount: input.recentPromptTexts.length,
   };

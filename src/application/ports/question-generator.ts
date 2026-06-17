@@ -1,4 +1,5 @@
 import type { Mood, Prompt, PromptType } from "../../domain/entities/prompt";
+import type { PlayContext } from "../../domain/entities/game-session";
 import type { Intensity } from "../../domain/value-objects/intensity";
 
 export interface GenerateQuestionInput {
@@ -6,6 +7,7 @@ export interface GenerateQuestionInput {
   readonly mood: Mood;
   readonly intensity: Intensity;
   readonly recentQuestions: readonly string[];
+  readonly playContext?: PlayContext | undefined;
 }
 
 export interface QuestionGenerator {

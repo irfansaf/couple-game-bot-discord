@@ -61,7 +61,10 @@ export class StaticPromptCatalog implements PromptCatalog {
     input: PromptSelectionInput,
   ): readonly StaticPromptTemplate[] {
     const targetIntensity = intensityValue(input.intensity);
-    const sameType = this.templates.filter((template) => template.type === input.type);
+    const sameType = this.templates.filter(
+      (template) =>
+        template.type === input.type && matchesPlayContext(template, input),
+    );
 
     return sameType
       .map((template) => ({
@@ -74,6 +77,17 @@ export class StaticPromptCatalog implements PromptCatalog {
       .sort((left, right) => right.score - left.score)
       .map(({ template }) => template);
   }
+}
+
+function matchesPlayContext(
+  template: StaticPromptTemplate,
+  input: PromptSelectionInput,
+): boolean {
+  if (template.type !== "dare" || input.playContext === undefined) {
+    return true;
+  }
+
+  return template.playContexts?.includes(input.playContext) ?? true;
 }
 
 function toPrompt(template: StaticPromptTemplate): Prompt {

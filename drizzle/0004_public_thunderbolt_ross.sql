@@ -1,0 +1,1 @@
+ALTER TABLE "game_sessions" ADD COLUMN "play_context" text DEFAULT 'e_meet' NOT NULL;

@@ -47,6 +47,13 @@ Start a session in Discord with:
 
 All options are optional. `Truth or Dare` starts as a lobby with Join, Leave, Start, Rules, and End controls. The host can start once 2-8 players have joined. During the active turn, only the current player chooses Truth, Dare, or Random, and the AI/static batch queue is scoped to that chosen prompt type.
 
+Truth or Dare also has a lobby play context:
+
+- `E-Meet` is the default for remote Discord/video/voice play.
+- `Meet` allows safe in-person dares when everyone is physically together.
+
+Changing play context is host-only and only available before Start. The dare queue is scoped to the selected context.
+
 The standalone prompt modes still support quick prompt-card play for Couple Question, Truth, Dare, and This/That.
 
 ## Scripts

@@ -1,4 +1,5 @@
 import type { Mood, PromptType } from "../domain/entities/prompt";
+import type { PlayContext } from "../domain/entities/game-session";
 
 export interface StaticPromptTemplate {
   readonly id: string;
@@ -7,6 +8,7 @@ export interface StaticPromptTemplate {
   readonly intensity: 1 | 2 | 3;
   readonly text: string;
   readonly followUp?: string;
+  readonly playContexts?: readonly PlayContext[];
 }
 
 export const staticPromptTemplates: readonly StaticPromptTemplate[] = [
@@ -24,6 +26,7 @@ export const staticPromptTemplates: readonly StaticPromptTemplate[] = [
     mood: "funny",
     intensity: 1,
     text: "Give your partner a wildly sincere 20-second award speech.",
+    playContexts: ["meet", "e_meet"],
   },
   {
     id: "couple-question-romantic-2-ritual",
@@ -59,6 +62,7 @@ export const staticPromptTemplates: readonly StaticPromptTemplate[] = [
     mood: "cozy",
     intensity: 1,
     text: "Send one specific compliment your partner would not expect.",
+    playContexts: ["e_meet"],
   },
   {
     id: "this-or-that-cozy-1-movie-snack",
@@ -80,6 +84,7 @@ export const staticPromptTemplates: readonly StaticPromptTemplate[] = [
     mood: "romantic",
     intensity: 2,
     text: "Send a short voice note saying one thing you adore about your partner.",
+    playContexts: ["e_meet"],
   },
   {
     id: "couple-question-deep-2-future-support",
@@ -102,5 +107,22 @@ export const staticPromptTemplates: readonly StaticPromptTemplate[] = [
     mood: "flirty_safe",
     intensity: 3,
     text: "Write your partner a playful two-line invite for your next date.",
+    playContexts: ["meet", "e_meet"],
+  },
+  {
+    id: "dare-cozy-1-eye-contact",
+    type: "dare",
+    mood: "cozy",
+    intensity: 1,
+    text: "Give your partner a sincere 10-second compliment while making eye contact.",
+    playContexts: ["meet"],
+  },
+  {
+    id: "dare-romantic-2-handwritten-note",
+    type: "dare",
+    mood: "romantic",
+    intensity: 2,
+    text: "Write a tiny note and hand it to your partner without explaining it first.",
+    playContexts: ["meet"],
   },
 ];

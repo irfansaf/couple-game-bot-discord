@@ -7,6 +7,7 @@ import {
 
 import {
   currentTruthOrDarePlayer,
+  type PlayContext,
   truthOrDareMaxPlayers,
   truthOrDareMode,
   type GameSession,
@@ -114,7 +115,7 @@ function buildTruthOrDareStateCard(
   const embed = new EmbedBuilder().setColor(0xf4a7bb).setFooter({
     text: `Players ${session.players.length}/${truthOrDareMaxPlayers} - Intensity ${intensityValue(
       session.intensity,
-    )}`,
+    )} - ${formatPlayContext(session.playContext)}`,
   });
 
   if (session.phase === "lobby") {
@@ -123,6 +124,7 @@ function buildTruthOrDareStateCard(
       .setDescription(
         [
           `Host: ${mention(session.hostUserId)}`,
+          `Play context: ${formatPlayContext(session.playContext)}`,
           `Players: ${formatPlayers(session.players)}`,
         ].join("\n"),
       );
@@ -132,19 +134,24 @@ function buildTruthOrDareStateCard(
         {
           name: "Rules",
           value:
-            "Join the lobby, then the host starts when at least 2 players are in. Turns follow join order.",
+            "Join the lobby, choose Meet or E-Meet, then the host starts when at least 2 players are in. Turns follow join order.",
         },
         {
           name: "Comfort",
           value:
             "Skip, Softer, and End are always available. Dares should stay safe, legal, and only involve players who joined.",
         },
+        {
+          name: "Play context",
+          value:
+            "E-Meet keeps dares remote-safe for Discord or video calls. Meet allows safe in-person dares.",
+        },
       );
     }
 
     return {
       embeds: [embed],
-      components: buildTruthOrDareLobbyButtons(session.id, false),
+      components: buildTruthOrDareLobbyButtons(session, session.id, false),
     };
   }
 
@@ -186,7 +193,9 @@ function buildTruthOrDarePromptCard(
     .setFooter({
       text: `Turn ${session.currentTurnIndex + 1} - Round ${
         session.recentPromptIds.length
-      } - Intensity ${intensityValue(session.intensity)} - ${formatPromptSource(
+      } - ${formatPlayContext(session.playContext)} - Intensity ${intensityValue(
+        session.intensity,
+      )} - ${formatPromptSource(
         prompt.source,
       )}`,
     });
@@ -240,6 +249,7 @@ function buildPromptGameButtons(
 }
 
 function buildTruthOrDareLobbyButtons(
+  session: GameSession,
   sessionId: string,
   disabled: boolean,
 ): ActionRowBuilder<ButtonBuilder>[] {
@@ -250,6 +260,22 @@ function buildTruthOrDareLobbyButtons(
       gameButton("start_tod", sessionId, "Start", ButtonStyle.Primary, disabled),
       gameButton("rules", sessionId, "Rules", ButtonStyle.Secondary, disabled),
       gameButton("end", sessionId, "End", ButtonStyle.Danger, disabled),
+    ),
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      gameButton(
+        "set_context_e_meet",
+        sessionId,
+        "E-Meet",
+        session.playContext === "e_meet" ? ButtonStyle.Primary : ButtonStyle.Secondary,
+        disabled,
+      ),
+      gameButton(
+        "set_context_meet",
+        sessionId,
+        "Meet",
+        session.playContext === "meet" ? ButtonStyle.Primary : ButtonStyle.Secondary,
+        disabled,
+      ),
     ),
   ];
 }
@@ -372,6 +398,10 @@ function formatMood(mood: Mood): string {
 
 function formatPromptSource(source: Prompt["source"]): string {
   return source === "ai" ? "AI" : "Static fallback";
+}
+
+function formatPlayContext(playContext: PlayContext): string {
+  return playContext === "meet" ? "Meet" : "E-Meet";
 }
 
 function formatPlayers(players: readonly string[]): string {

@@ -8,6 +8,8 @@ AI generation should come after the static Discord loop works. The AI provider m
 
 Truth or Dare has its own turn-based design in `docs/truth-or-dare-design.md`. Treat it as a mode-specific game loop with lobby, joined players, current player, and contextual controls.
 
+The complete MVP game-mode design lives in `docs/mvp-game-designs.md`. Use it as the source of truth for Couple Questions, This or That, standalone Truth, standalone Dare, and shared mode-specific control rules.
+
 ## MVP Goals
 
 - Make `/game start` create a simple two-person date-night session in Discord.
@@ -55,6 +57,7 @@ This slice should prove the bot feels like a game host before adding AI.
 - Embed and button handlers for the core play loop.
 - Safety controls: Skip, Softer, Spicier, End Game.
 - Mode-specific button layouts so each game feels like its own loop.
+- Couple Questions, This or That, standalone Truth, and standalone Dare controls should follow `docs/mvp-game-designs.md`.
 
 ### P1 - AI Prompt Generation
 

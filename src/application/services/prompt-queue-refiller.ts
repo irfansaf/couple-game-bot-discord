@@ -41,6 +41,7 @@ export class PromptQueueRefiller {
           ...session.recentPromptTexts,
           ...session.promptQueue.map((prompt) => prompt.text),
         ],
+        playContext: session.playContext,
       },
       missingPromptCount,
     );

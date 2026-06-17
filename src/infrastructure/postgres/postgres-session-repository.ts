@@ -7,6 +7,7 @@ import type {
   GameSessionPhase,
   GameSessionStatus,
 } from "../../domain/entities/game-session";
+import { playContexts } from "../../domain/entities/game-session";
 import { gameModes, moods, promptTypes, type Prompt } from "../../domain/entities/prompt";
 import {
   createChannelId,
@@ -48,6 +49,7 @@ const sessionRowSchema = z.object({
   promptQueue: z.array(storedPromptSchema),
   promptQueueType: z.enum(promptTypes).nullable(),
   currentPrompt: storedPromptSchema.nullable(),
+  playContext: z.enum(playContexts),
   currentTurnIndex: z.number().int().min(0),
   phase: z.enum(["lobby", "turn_choice", "prompt_revealed"]),
   status: z.enum(["active", "ended"]),
@@ -79,6 +81,7 @@ export class PostgresSessionRepository implements SessionRepository {
         currentPrompt: session.currentPrompt === undefined
           ? null
           : toStoredPrompt(session.currentPrompt),
+        playContext: session.playContext,
         currentTurnIndex: session.currentTurnIndex,
         phase: session.phase,
         status: session.status,
@@ -100,6 +103,7 @@ export class PostgresSessionRepository implements SessionRepository {
           currentPrompt: session.currentPrompt === undefined
             ? null
             : toStoredPrompt(session.currentPrompt),
+          playContext: session.playContext,
           currentTurnIndex: session.currentTurnIndex,
           phase: session.phase,
           status: session.status,
@@ -141,6 +145,7 @@ function toDomain(row: SessionRow): GameSession {
     currentPrompt: parsed.currentPrompt === null
       ? undefined
       : fromStoredPrompt(parsed.currentPrompt),
+    playContext: parsed.playContext,
     currentTurnIndex: parsed.currentTurnIndex,
     phase: parsed.phase as GameSessionPhase,
     status: parsed.status as GameSessionStatus,

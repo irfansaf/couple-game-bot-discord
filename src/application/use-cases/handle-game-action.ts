@@ -7,6 +7,7 @@ import {
   endGameSession,
   joinTruthOrDareSession,
   leaveTruthOrDareSession,
+  setTruthOrDarePlayContext,
   shiftGameSessionIntensity,
   startTruthOrDareSession,
   truthOrDareMaxPlayers,
@@ -25,6 +26,8 @@ export const gameActions = [
   "leave",
   "start_tod",
   "rules",
+  "set_context_meet",
+  "set_context_e_meet",
   "truth",
   "dare",
   "random",
@@ -150,6 +153,26 @@ export class HandleGameActionUseCase {
 
     if (input.action === "rules") {
       return { status: "state", session, view: "rules" };
+    }
+
+    if (
+      input.action === "set_context_meet" ||
+      input.action === "set_context_e_meet"
+    ) {
+      if (session.hostUserId !== actorUserId) {
+        return { status: "blocked", reason: "not_host", session };
+      }
+
+      if (session.phase !== "lobby") {
+        return { status: "blocked", reason: "not_in_lobby", session };
+      }
+
+      const playContext = input.action === "set_context_meet" ? "meet" : "e_meet";
+      const updatedSession = setTruthOrDarePlayContext(session, playContext);
+
+      await this.sessions.save(updatedSession);
+
+      return { status: "state", session: updatedSession };
     }
 
     if (input.action === "join") {

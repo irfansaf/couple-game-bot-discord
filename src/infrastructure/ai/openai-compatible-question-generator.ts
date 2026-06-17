@@ -221,6 +221,7 @@ function buildAiRequestLogContext(
     thinkingMode: resolvedThinkingMode(config),
     promptType: input.type,
     mood: input.mood,
+    playContext: input.playContext ?? null,
     count,
     recentQuestionCount: input.recentQuestions.length,
   };

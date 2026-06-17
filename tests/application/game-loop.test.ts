@@ -167,6 +167,7 @@ describe("static game loop", () => {
 
     expect(started.status).toBe("session");
     expect(started.session.phase).toBe("lobby");
+    expect(started.session.playContext).toBe("e_meet");
     expect(started.session.promptQueue).toHaveLength(0);
 
     const tooEarly = await handleAction.execute({
@@ -193,6 +194,18 @@ describe("static game loop", () => {
     }
     expect(joined.session.players).toEqual(["user-1", "user-2"]);
 
+    const meetContext = await handleAction.execute({
+      sessionId: started.session.id,
+      action: "set_context_meet",
+      userId: "user-1",
+    });
+
+    expect(meetContext.status).toBe("state");
+    if (meetContext.status !== "state") {
+      throw new Error("Expected state output.");
+    }
+    expect(meetContext.session.playContext).toBe("meet");
+
     const active = await handleAction.execute({
       sessionId: started.session.id,
       action: "start_tod",
@@ -204,6 +217,19 @@ describe("static game loop", () => {
       throw new Error("Expected state output.");
     }
     expect(active.session.phase).toBe("turn_choice");
+    expect(active.session.playContext).toBe("meet");
+
+    const lateContextChange = await handleAction.execute({
+      sessionId: started.session.id,
+      action: "set_context_e_meet",
+      userId: "user-1",
+    });
+
+    expect(lateContextChange.status).toBe("blocked");
+    if (lateContextChange.status !== "blocked") {
+      throw new Error("Expected blocked output.");
+    }
+    expect(lateContextChange.reason).toBe("not_in_lobby");
 
     const wrongPlayer = await handleAction.execute({
       sessionId: started.session.id,

@@ -13,10 +13,13 @@ import type { GameMode, Mood, Prompt, PromptType } from "./prompt";
 export type GameSessionStatus = "active" | "ended";
 export type GameSessionPhase = "lobby" | "turn_choice" | "prompt_revealed";
 export type TruthOrDareChoice = "truth" | "dare";
+export const playContexts = ["meet", "e_meet"] as const;
+export type PlayContext = (typeof playContexts)[number];
 
 export const truthOrDareMode = "truth_or_dare" satisfies GameMode;
 export const truthOrDareMinPlayers = 2;
 export const truthOrDareMaxPlayers = 8;
+export const defaultPlayContext = "e_meet" satisfies PlayContext;
 
 export interface GameSession {
   readonly id: SessionId;
@@ -32,6 +35,7 @@ export interface GameSession {
   readonly promptQueue: readonly Prompt[];
   readonly promptQueueType?: PromptType | undefined;
   readonly currentPrompt?: Prompt | undefined;
+  readonly playContext: PlayContext;
   readonly currentTurnIndex: number;
   readonly phase: GameSessionPhase;
   readonly status: GameSessionStatus;
@@ -65,6 +69,7 @@ export function createGameSession(input: CreateGameSessionInput): GameSession {
     recentPromptIds: [],
     recentPromptTexts: [],
     promptQueue: [],
+    playContext: defaultPlayContext,
     currentTurnIndex: 0,
     phase,
     status: "active",
@@ -164,6 +169,7 @@ export function changeGameSessionMode(
     currentPrompt: undefined,
     phase: mode === truthOrDareMode ? "lobby" : "prompt_revealed",
     currentTurnIndex: 0,
+    playContext: defaultPlayContext,
   };
 }
 
@@ -264,6 +270,30 @@ export function startTruthOrDareSession(session: GameSession): GameSession {
     currentPrompt: undefined,
     promptQueue: [],
     promptQueueType: undefined,
+  };
+}
+
+export function setTruthOrDarePlayContext(
+  session: GameSession,
+  playContext: PlayContext,
+): GameSession {
+  assertActive(session, "Cannot change play context for an ended session.");
+  assertTruthOrDare(session, "Cannot change play context for a non Truth or Dare session.");
+
+  if (session.phase !== "lobby") {
+    throw new DomainValidationError("Cannot change play context after Truth or Dare starts.");
+  }
+
+  if (session.playContext === playContext) {
+    return session;
+  }
+
+  return {
+    ...session,
+    playContext,
+    promptQueue: [],
+    promptQueueType: undefined,
+    currentPrompt: undefined,
   };
 }
 
