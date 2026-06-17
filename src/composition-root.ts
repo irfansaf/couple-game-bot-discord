@@ -7,12 +7,14 @@ import { HandleGameActionUseCase } from "./application/use-cases/handle-game-act
 import { RefillPromptQueueUseCase } from "./application/use-cases/refill-prompt-queue";
 import { StartGameSessionUseCase } from "./application/use-cases/start-game-session";
 import { OpenAiCompatibleQuestionGenerator } from "./infrastructure/ai/openai-compatible-question-generator";
+import { BufferedAiOutputCapture } from "./infrastructure/ai/ai-output-capture";
 import { createDiscordClient } from "./infrastructure/discord/client";
 import { registerGuildCommands } from "./infrastructure/discord/register-commands";
 import { AiFirstPromptCatalog } from "./infrastructure/content/ai-first-prompt-catalog";
 import { StaticPromptCatalog } from "./infrastructure/content/static-prompt-catalog";
 import { PinoLogger } from "./infrastructure/logging/logger";
 import { createPostgresConnection } from "./infrastructure/postgres/client";
+import { PostgresAiOutputCaptureRepository } from "./infrastructure/postgres/postgres-ai-output-capture-repository";
 import { PostgresSessionIdGenerator } from "./infrastructure/postgres/postgres-session-id-generator";
 import { PostgresSessionRepository } from "./infrastructure/postgres/postgres-session-repository";
 import { DiscordGameController } from "./presentation/discord/game-controller";
@@ -24,8 +26,23 @@ export function createApp(config: RuntimeConfig) {
   const sessions = new PostgresSessionRepository(postgres);
   const sessionIds = new PostgresSessionIdGenerator(postgres);
   const staticPromptCatalog = new StaticPromptCatalog();
+  const aiOutputCapture = config.ai.enabled && config.ai.outputCapture.enabled
+    ? new BufferedAiOutputCapture(
+        new PostgresAiOutputCaptureRepository(postgres),
+        {
+          batchSize: config.ai.outputCapture.batchSize,
+          flushIntervalMs: config.ai.outputCapture.flushIntervalMs,
+        },
+        logger,
+      )
+    : null;
   const questionGenerator = config.ai.enabled
-    ? new OpenAiCompatibleQuestionGenerator(config.ai, undefined, logger)
+    ? new OpenAiCompatibleQuestionGenerator(
+        config.ai,
+        undefined,
+        logger,
+        aiOutputCapture ?? undefined,
+      )
     : null;
   const promptCatalog =
     questionGenerator === null
@@ -68,6 +85,7 @@ export function createApp(config: RuntimeConfig) {
     },
     close: async () => {
       discordClient.destroy();
+      await aiOutputCapture?.close();
       await postgres.close();
     },
   };

@@ -26,6 +26,9 @@ AI_MAX_ATTEMPTS=3
 AI_MAX_TOKENS=1800
 AI_TEMPERATURE=1.15
 AI_MAX_CONTEXT_TOKENS=16000
+AI_CAPTURE_OUTPUTS=false
+AI_CAPTURE_BATCH_SIZE=20
+AI_CAPTURE_FLUSH_INTERVAL_MS=10000
 AI_THINKING_MODE=auto
 LOG_LEVEL=debug
 ```
@@ -42,7 +45,9 @@ For DeepSeek, `AI_THINKING_MODE=auto` sends non-thinking requests by default bec
 
 AI prompt behavior is centralized in `src/content/ai-prompt-catalog.ts`. Use the project `ai-engineer` skill when evaluating prompt quality, changing mode guidance, tuning provider settings, or debugging repeated/invalid AI prompts.
 
-Generated AI output evaluation lives in `ai-workbench/`. Put local captures in `ai-workbench/generated`, keep sanitized shareable examples in `ai-workbench/samples`, then run:
+AI research capture is opt-in. Set `AI_CAPTURE_OUTPUTS=true` to store generated AI output content and validation metadata in Postgres for later analysis. Writes are non-blocking: the bot queues capture records in memory and flushes them to Postgres in batches controlled by `AI_CAPTURE_BATCH_SIZE` and `AI_CAPTURE_FLUSH_INTERVAL_MS`.
+
+Generated AI output evaluation also has a local workbench in `ai-workbench/`. Put manual captures in `ai-workbench/generated`, keep sanitized shareable examples in `ai-workbench/samples`, then run:
 
 ```bash
 bun run ai:validate

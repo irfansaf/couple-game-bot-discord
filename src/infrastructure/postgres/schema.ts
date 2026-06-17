@@ -1,5 +1,13 @@
 import { sql } from "drizzle-orm";
-import { integer, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import {
+  doublePrecision,
+  integer,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+} from "drizzle-orm/pg-core";
 
 export const gameSessions = pgTable("game_sessions", {
   id: uuid("id").primaryKey().default(sql`uuidv7()`),
@@ -22,4 +30,24 @@ export const gameSessions = pgTable("game_sessions", {
   status: text("status").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   endedAt: timestamp("ended_at", { withTimezone: true }),
+});
+
+export const aiPromptGenerations = pgTable("ai_prompt_generations", {
+  id: uuid("id").primaryKey().default(sql`uuidv7()`),
+  provider: text("provider").notNull(),
+  baseUrl: text("base_url").notNull(),
+  model: text("model").notNull(),
+  promptType: text("prompt_type").notNull(),
+  mood: text("mood").notNull(),
+  intensity: integer("intensity").notNull(),
+  playContext: text("play_context"),
+  requestedCount: integer("requested_count").notNull(),
+  attempt: integer("attempt").notNull(),
+  maxTokens: integer("max_tokens").notNull(),
+  temperature: doublePrecision("temperature").notNull(),
+  validationStatus: text("validation_status").notNull(),
+  validationErrors: jsonb("validation_errors").$type<string[]>().notNull().default([]),
+  questionCount: integer("question_count").notNull(),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
 });

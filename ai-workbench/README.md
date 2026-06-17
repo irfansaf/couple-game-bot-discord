@@ -1,10 +1,10 @@
 # AI Workbench
 
-Use this folder for AI Engineer prompt evaluation work.
+Use this folder for AI Engineer prompt evaluation work. Live Discord play can also store generated AI output in Postgres when `AI_CAPTURE_OUTPUTS=true`; this local folder remains useful for exports, sanitized samples, and one-off manual validation.
 
 ## Folders
 
-- `generated/`: local generated AI output captures. This folder is gitignored except `.gitkeep`.
+- `generated/`: local generated AI output captures or exports from Postgres. This folder is gitignored except `.gitkeep`.
 - `reports/`: local validation reports from `bun run ai:validate`. This folder is gitignored except `.gitkeep`.
 - `samples/`: committed sanitized examples that are safe to share in git.
 

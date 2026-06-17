@@ -16,8 +16,9 @@ Use this skill to treat prompt behavior as testable product code. Keep AI instru
    - `src/content/ai-prompt-template.ts` for message assembly and context-budget trimming.
    - `src/content/safety-rules.ts` and `src/domain/services/prompt-safety-policy.ts` for safety boundaries.
    - `src/infrastructure/ai/openai-compatible-question-generator.ts` for provider request/response validation.
+   - `src/infrastructure/ai/ai-output-capture.ts` and `src/infrastructure/postgres/postgres-ai-output-capture-repository.ts` for non-blocking research capture.
    - `src/content/question-packs.ts` for static fallback prompts.
-   - `ai-workbench/` for local generated output captures, sanitized samples, and validation reports.
+   - `ai-workbench/` for exports, local generated output captures, sanitized samples, and validation reports.
 2. Identify the exact failure mode: invalid JSON, unsafe wording, repetition, wrong mode, weak tone, latency, provider timeout, context bloat, or poor fallback.
 3. Improve the smallest central artifact first. Prefer catalog or schema changes over scattered string edits.
 4. Add or update tests for the behavior:
@@ -55,6 +56,8 @@ Use this checklist when reviewing prompt changes:
 ## AI Workbench
 
 - Put local model output captures in `ai-workbench/generated/`.
+- Use `AI_CAPTURE_OUTPUTS=true` to capture live generated output into Postgres for research analysis.
+- Live capture is non-blocking and batched; tune with `AI_CAPTURE_BATCH_SIZE` and `AI_CAPTURE_FLUSH_INTERVAL_MS`.
 - Keep committed sanitized examples in `ai-workbench/samples/`.
 - Run `bun run ai:validate` to validate generated JSON shape and safety filters.
 - Review `ai-workbench/reports/latest-validation.json` for per-file errors.

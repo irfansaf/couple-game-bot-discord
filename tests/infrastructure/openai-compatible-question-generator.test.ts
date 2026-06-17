@@ -13,6 +13,11 @@ const config = {
   maxTokens: 1800,
   temperature: 1.15,
   maxContextTokens: 16000,
+  outputCapture: {
+    enabled: false,
+    batchSize: 20,
+    flushIntervalMs: 10000,
+  },
   thinkingMode: "auto",
 } as const;
 
@@ -321,5 +326,59 @@ describe("OpenAiCompatibleQuestionGenerator", () => {
     });
 
     expect(recentQuestions).toEqual(["newest prompt to keep"]);
+  });
+
+  it("enqueues generated output captures without blocking prompt parsing", async () => {
+    const captured: unknown[] = [];
+
+    globalThis.fetch = Object.assign(async () =>
+      new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  questions: [
+                    {
+                      type: "truth",
+                      mood: "cozy",
+                      intensity: 1,
+                      question: "What is one tiny thing you appreciated today?",
+                      safetyNotes: [],
+                    },
+                  ],
+                }),
+              },
+            },
+          ],
+        }),
+        { status: 200 },
+      ), originalFetch);
+
+    const prompt = await new OpenAiCompatibleQuestionGenerator(
+      {
+        ...config,
+        outputCapture: {
+          enabled: true,
+          batchSize: 20,
+          flushIntervalMs: 10000,
+        },
+      },
+      undefined,
+      undefined,
+      {
+        enqueue: (record) => captured.push(record),
+        flush: async () => {},
+        close: async () => {},
+      },
+    ).generate(input);
+
+    expect(prompt.source).toBe("ai");
+    expect(captured).toHaveLength(1);
+    expect(captured[0]).toMatchObject({
+      promptType: "truth",
+      validationStatus: "valid",
+      questionCount: 1,
+    });
   });
 });

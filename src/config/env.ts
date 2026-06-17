@@ -21,6 +21,13 @@ const environmentSchema = z.object({
   AI_MAX_TOKENS: z.coerce.number().int().positive().default(1800),
   AI_TEMPERATURE: z.coerce.number().min(0).max(2).default(1.15),
   AI_MAX_CONTEXT_TOKENS: z.coerce.number().int().min(1024).default(16000),
+  AI_CAPTURE_OUTPUTS: z.enum(["true", "false"]).default("false"),
+  AI_CAPTURE_BATCH_SIZE: z.coerce.number().int().min(1).max(500).default(20),
+  AI_CAPTURE_FLUSH_INTERVAL_MS: z.coerce
+    .number()
+    .int()
+    .min(1000)
+    .default(10000),
   AI_THINKING_MODE: z
     .enum(["auto", "disabled", "enabled", "provider_default"])
     .default("auto"),
@@ -55,6 +62,7 @@ export interface AiProviderConfig {
   readonly maxTokens: number;
   readonly temperature: number;
   readonly maxContextTokens: number;
+  readonly outputCapture: AiOutputCaptureConfig;
   readonly thinkingMode: "auto" | "disabled" | "enabled" | "provider_default";
 }
 
@@ -66,10 +74,17 @@ export interface DisabledAiConfig {
   readonly maxTokens: number;
   readonly temperature: number;
   readonly maxContextTokens: number;
+  readonly outputCapture: AiOutputCaptureConfig;
   readonly thinkingMode: "auto" | "disabled" | "enabled" | "provider_default";
 }
 
 export type AiConfig = AiProviderConfig | DisabledAiConfig;
+
+export interface AiOutputCaptureConfig {
+  readonly enabled: boolean;
+  readonly batchSize: number;
+  readonly flushIntervalMs: number;
+}
 
 export interface RuntimeConfig {
   readonly nodeEnv: "development" | "test" | "production";
@@ -111,6 +126,11 @@ export function loadEnv(
             maxTokens: parsed.AI_MAX_TOKENS,
             temperature: parsed.AI_TEMPERATURE,
             maxContextTokens: parsed.AI_MAX_CONTEXT_TOKENS,
+            outputCapture: {
+              enabled: parsed.AI_CAPTURE_OUTPUTS === "true",
+              batchSize: parsed.AI_CAPTURE_BATCH_SIZE,
+              flushIntervalMs: parsed.AI_CAPTURE_FLUSH_INTERVAL_MS,
+            },
             thinkingMode: parsed.AI_THINKING_MODE,
           }
         : {
@@ -121,6 +141,11 @@ export function loadEnv(
             maxTokens: parsed.AI_MAX_TOKENS,
             temperature: parsed.AI_TEMPERATURE,
             maxContextTokens: parsed.AI_MAX_CONTEXT_TOKENS,
+            outputCapture: {
+              enabled: parsed.AI_CAPTURE_OUTPUTS === "true",
+              batchSize: parsed.AI_CAPTURE_BATCH_SIZE,
+              flushIntervalMs: parsed.AI_CAPTURE_FLUSH_INTERVAL_MS,
+            },
             thinkingMode: parsed.AI_THINKING_MODE,
           },
     database: {
@@ -149,6 +174,11 @@ export function summarizeConfig(config: RuntimeConfig): Record<string, unknown> 
       maxTokens: config.ai.maxTokens,
       temperature: config.ai.temperature,
       maxContextTokens: config.ai.maxContextTokens,
+      outputCapture: {
+        enabled: config.ai.outputCapture.enabled,
+        batchSize: config.ai.outputCapture.batchSize,
+        flushIntervalMs: config.ai.outputCapture.flushIntervalMs,
+      },
       thinkingMode: config.ai.thinkingMode,
     },
     database: {

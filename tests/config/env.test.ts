@@ -37,6 +37,11 @@ describe("loadEnv", () => {
       maxTokens: 1800,
       temperature: 1.15,
       maxContextTokens: 16000,
+      outputCapture: {
+        enabled: false,
+        batchSize: 20,
+        flushIntervalMs: 10000,
+      },
       thinkingMode: "auto",
     });
   });
@@ -51,6 +56,9 @@ describe("loadEnv", () => {
       AI_MAX_TOKENS: "900",
       AI_TEMPERATURE: "1.3",
       AI_MAX_CONTEXT_TOKENS: "4096",
+      AI_CAPTURE_OUTPUTS: "true",
+      AI_CAPTURE_BATCH_SIZE: "5",
+      AI_CAPTURE_FLUSH_INTERVAL_MS: "2500",
       AI_THINKING_MODE: "disabled",
     });
 
@@ -62,6 +70,11 @@ describe("loadEnv", () => {
       maxTokens: 900,
       temperature: 1.3,
       maxContextTokens: 4096,
+      outputCapture: {
+        enabled: true,
+        batchSize: 5,
+        flushIntervalMs: 2500,
+      },
       thinkingMode: "disabled",
     });
   });

@@ -59,7 +59,7 @@ describe("ai generated output validation", () => {
           type: "after_dark",
           mood: "flirty_safe",
           intensity: 2,
-          question: "Share an explicit sex dare.",
+          question: "Do this without consent.",
           safetyNotes: [],
         },
       ],

@@ -15,12 +15,17 @@ import {
 import type { Prompt } from "../../domain/entities/prompt";
 import { PromptSafetyPolicy } from "../../domain/services/prompt-safety-policy";
 import type { Logger } from "../logging/logger";
+import {
+  buildAiOutputCaptureRecord,
+  type AiOutputCaptureSink,
+} from "./ai-output-capture";
 
 export class OpenAiCompatibleQuestionGenerator implements QuestionGenerator {
   public constructor(
     private readonly config: AiProviderConfig,
     private readonly safetyPolicy = new PromptSafetyPolicy(),
     private readonly logger?: Logger,
+    private readonly outputCapture?: AiOutputCaptureSink,
   ) {}
 
   public async generate(input: GenerateQuestionInput): Promise<Prompt> {
@@ -60,6 +65,15 @@ export class OpenAiCompatibleQuestionGenerator implements QuestionGenerator {
             maxContextTokens: this.config.maxContextTokens,
           }),
           attemptContext,
+        );
+        this.outputCapture?.enqueue(
+          buildAiOutputCaptureRecord({
+            config: this.config,
+            input,
+            count,
+            attempt,
+            content: completion,
+          }),
         );
         const generatedBatch = generatedAiQuestionBatchSchema.parse(
           JSON.parse(completion) as unknown,
