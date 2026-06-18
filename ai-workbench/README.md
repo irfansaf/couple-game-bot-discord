@@ -47,6 +47,16 @@ You can pass custom paths:
 bun run ai:validate ai-workbench/samples ai-workbench/reports/samples-validation.json
 ```
 
+## Live Research Report
+
+When `AI_CAPTURE_OUTPUTS=true`, live Discord session captures are stored in Postgres. Summarize them without printing raw generated prompt content:
+
+```bash
+bun run ai:report
+bun run ai:report -- --since all --limit 20
+bun run ai:report -- --json
+```
+
 ## Privacy
 
 Do not put private answers, Discord user content, tokens, or raw sensitive logs here. Keep local generated output out of git unless it is sanitized and intentionally moved to `samples/`.

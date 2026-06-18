@@ -53,6 +53,14 @@ Generated AI output evaluation also has a local workbench in `ai-workbench/`. Pu
 bun run ai:validate
 ```
 
+To summarize live Postgres research captures without printing raw generated prompt content, run:
+
+```bash
+bun run ai:report
+bun run ai:report -- --since 7d --limit 20
+bun run ai:report -- --json
+```
+
 Start a session in Discord with:
 
 ```text
@@ -84,6 +92,7 @@ This or That starts as a lobby with `Join`, `Leave`, `Start`, `Rules`, and `End`
 - `bun run db:down` stops the local Postgres container.
 - `bun run db:generate` generates Drizzle migrations from the Postgres schema.
 - `bun run db:migrate` applies Drizzle migrations to `DATABASE_URL`.
+- `bun run ai:report` summarizes Postgres AI research captures without raw prompt content.
 - `bun run ai:validate` validates AI output captures from `ai-workbench/generated`.
 - `bun run typecheck` checks strict TypeScript.
 - `bun run test` runs the test suite through Vitest.
