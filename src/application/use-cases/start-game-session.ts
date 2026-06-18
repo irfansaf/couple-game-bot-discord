@@ -2,6 +2,7 @@ import {
   afterDarkMode,
   coupleQuestionMode,
   createGameSession,
+  dateNightMode,
   dequeuePrompt,
   thisOrThatMode,
   truthOrDareMode,
@@ -65,6 +66,7 @@ export class StartGameSessionUseCase {
       session.mode === truthOrDareMode ||
       session.mode === coupleQuestionMode ||
       session.mode === afterDarkMode ||
+      session.mode === dateNightMode ||
       session.mode === thisOrThatMode
     ) {
       await this.sessions.save(session);

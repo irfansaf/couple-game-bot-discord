@@ -1,4 +1,5 @@
 import type { PromptType } from "../domain/entities/prompt";
+import type { DateNightStep } from "../domain/entities/game-session";
 import { aiPromptSafetyRules } from "./safety-rules";
 
 export type AiPromptResponseShape = "single" | "batch";
@@ -6,6 +7,7 @@ export type AiPromptResponseShape = "single" | "batch";
 export interface AiSystemPromptInput {
   readonly promptType: PromptType;
   readonly responseShape: AiPromptResponseShape;
+  readonly dateNightStep?: DateNightStep | undefined;
 }
 
 export const aiPromptCatalog = {
@@ -51,6 +53,23 @@ export const aiPromptCatalog = {
       "Avoid explicitly graphic sexual acts, graphic body details, coercive escalation, humiliation, or shame.",
     ],
   } satisfies Record<PromptType, readonly string[]>,
+  dateNightGuidance: {
+    warm_up: [
+      "For Date Night warm_up, write an easy opening prompt that feels cozy and low-pressure.",
+    ],
+    play: [
+      "For Date Night play, write a light, playful prompt about preferences, smiles, or small shared choices.",
+    ],
+    closer: [
+      "For Date Night closer, write a meaningful but non-interrogating reflection prompt.",
+    ],
+    appreciation: [
+      "For Date Night appreciation, invite gratitude, noticed effort, affection, or a favorite memory.",
+    ],
+    closing: [
+      "For Date Night closing, write a soft ending prompt about tomorrow, a small promise, or a future plan.",
+    ],
+  } satisfies Record<DateNightStep, readonly string[]>,
   safetyRules: aiPromptSafetyRules,
 } as const;
 
@@ -60,6 +79,9 @@ export function buildAiSystemPrompt(input: AiSystemPromptInput): string {
     ...aiPromptCatalog.responseContracts[input.responseShape],
     ...aiPromptCatalog.qualityRules,
     ...aiPromptCatalog.modeGuidance[input.promptType],
+    ...(input.dateNightStep === undefined
+      ? []
+      : aiPromptCatalog.dateNightGuidance[input.dateNightStep]),
     ...aiPromptCatalog.safetyRules,
   ].join("\n");
 }

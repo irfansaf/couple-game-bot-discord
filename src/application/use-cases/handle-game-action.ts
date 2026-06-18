@@ -1,4 +1,5 @@
 import {
+  advanceDateNightStep,
   advanceTruthOrDareTurn,
   afterDarkMaxPlayers,
   afterDarkMinPlayers,
@@ -9,14 +10,19 @@ import {
   coupleQuestionMinPlayers,
   coupleQuestionMode,
   currentTruthOrDarePlayer,
+  dateNightMaxPlayers,
+  dateNightMinPlayers,
+  dateNightMode,
   dequeuePrompt,
   endGameSession,
   joinAfterDarkSession,
   joinCoupleQuestionSession,
+  joinDateNightSession,
   joinThisOrThatSession,
   joinTruthOrDareSession,
   leaveAfterDarkSession,
   leaveCoupleQuestionSession,
+  leaveDateNightSession,
   leaveThisOrThatSession,
   leaveTruthOrDareSession,
   recordThisOrThatVote,
@@ -24,6 +30,7 @@ import {
   shiftGameSessionIntensity,
   startAfterDarkSession,
   startCoupleQuestionSession,
+  startDateNightSession,
   startThisOrThatSession,
   startTruthOrDareSession,
   thisOrThatMaxPlayers,
@@ -48,6 +55,7 @@ export const gameActions = [
   "start_couple_question",
   "start_after_dark",
   "start_this_or_that",
+  "start_date_night",
   "rules",
   "set_context_meet",
   "set_context_e_meet",
@@ -57,6 +65,8 @@ export const gameActions = [
   "couple_question",
   "this_or_that",
   "after_dark",
+  "date_night",
+  "continue_date_night",
   "next",
   "skip",
   "softer",
@@ -165,6 +175,10 @@ export class HandleGameActionUseCase {
 
     if (session.mode === afterDarkMode) {
       return this.handleAfterDarkAction(session, input);
+    }
+
+    if (session.mode === dateNightMode) {
+      return this.handleDateNightAction(session, input);
     }
 
     if (session.mode === thisOrThatMode) {
@@ -673,6 +687,110 @@ export class HandleGameActionUseCase {
     return { status: "blocked", reason: "wrong_phase", session };
   }
 
+  private async handleDateNightAction(
+    session: GameSession,
+    input: HandleGameActionInput,
+  ): Promise<HandleGameActionOutput> {
+    const actorUserId = createUserId(input.userId);
+
+    if (input.action === "rules") {
+      return { status: "state", session, view: "rules" };
+    }
+
+    if (input.action === "join") {
+      if (session.phase !== "lobby") {
+        return { status: "blocked", reason: "not_in_lobby", session };
+      }
+
+      if (session.players.includes(actorUserId)) {
+        return { status: "blocked", reason: "already_joined", session };
+      }
+
+      if (session.players.length >= dateNightMaxPlayers) {
+        return { status: "blocked", reason: "session_full", session };
+      }
+
+      const joinedSession = joinDateNightSession(session, actorUserId);
+
+      await this.sessions.save(joinedSession);
+
+      return { status: "state", session: joinedSession };
+    }
+
+    if (input.action === "leave") {
+      if (!session.players.includes(actorUserId)) {
+        return { status: "blocked", reason: "not_a_player", session };
+      }
+
+      if (session.phase !== "lobby") {
+        return { status: "blocked", reason: "not_in_lobby", session };
+      }
+
+      const leftSession = leaveDateNightSession(session, actorUserId, input.now);
+
+      await this.sessions.save(leftSession);
+
+      return leftSession.status === "ended"
+        ? { status: "ended", session: leftSession }
+        : { status: "state", session: leftSession };
+    }
+
+    if (input.action === "start_date_night") {
+      if (session.hostUserId !== actorUserId) {
+        return { status: "blocked", reason: "not_host", session };
+      }
+
+      if (session.phase !== "lobby") {
+        return { status: "blocked", reason: "not_in_lobby", session };
+      }
+
+      if (session.players.length < dateNightMinPlayers) {
+        return { status: "blocked", reason: "not_enough_players", session };
+      }
+
+      return this.revealDateNightPrompt(startDateNightSession(session));
+    }
+
+    if (!session.players.includes(actorUserId)) {
+      return { status: "blocked", reason: "not_a_player", session };
+    }
+
+    if (input.action === "continue_date_night") {
+      if (session.phase !== "prompt_revealed") {
+        return { status: "blocked", reason: "wrong_phase", session };
+      }
+
+      const advancedSession = advanceDateNightStep(session);
+
+      if (advancedSession.phase === "completed") {
+        await this.sessions.save(advancedSession);
+
+        return { status: "state", session: advancedSession };
+      }
+
+      return this.revealDateNightPrompt(advancedSession);
+    }
+
+    if (input.action === "skip" || input.action === "softer") {
+      if (session.phase !== "prompt_revealed") {
+        return { status: "blocked", reason: "wrong_phase", session };
+      }
+
+      const selectedSession = input.action === "softer"
+        ? shiftGameSessionIntensity(session, "softer")
+        : {
+            ...session,
+            promptQueue: [],
+            currentPrompt: undefined,
+            choiceVotes: [],
+          };
+
+      return this.revealDateNightPrompt(selectedSession);
+    }
+
+    return { status: "blocked", reason: "wrong_phase", session };
+  }
+
   private async revealTruthOrDarePrompt(
     session: GameSession,
     promptType: TruthOrDareChoice,
@@ -758,6 +876,27 @@ export class HandleGameActionUseCase {
       prompt: dequeued.prompt,
     };
   }
+
+  private async revealDateNightPrompt(
+    session: GameSession,
+  ): Promise<HandleGameActionOutput> {
+    const queuedSession = session.promptQueue.length === 0
+      ? await this.queueRefiller.fillToTarget(session)
+      : session;
+    const dequeued = dequeuePrompt(queuedSession);
+
+    if (dequeued === null) {
+      return { status: "missing_prompt", session: queuedSession };
+    }
+
+    await this.sessions.save(dequeued.session);
+
+    return {
+      status: "prompt",
+      session: dequeued.session,
+      prompt: dequeued.prompt,
+    };
+  }
 }
 
 function applyPromptGameAction(session: GameSession, action: GameAction): GameSession {
@@ -781,7 +920,8 @@ export function gameActionToMode(action: GameAction): GameMode | null {
   if (
     action === "couple_question" ||
     action === "this_or_that" ||
-    action === "after_dark"
+    action === "after_dark" ||
+    action === "date_night"
   ) {
     return action;
   }
@@ -805,6 +945,7 @@ function isTruthOrDareOnlyAction(action: GameAction): boolean {
     action === "start_couple_question" ||
     action === "start_after_dark" ||
     action === "start_this_or_that" ||
+    action === "start_date_night" ||
     action === "rules" ||
     action === "set_context_meet" ||
     action === "set_context_e_meet" ||
@@ -815,7 +956,8 @@ function isTruthOrDareOnlyAction(action: GameAction): boolean {
     action === "answer_private" ||
     action === "done" ||
     action === "alternative_dare" ||
-    action === "next_turn"
+    action === "next_turn" ||
+    action === "continue_date_night"
   );
 }
 

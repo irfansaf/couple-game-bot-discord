@@ -177,6 +177,111 @@ describe("static game loop", () => {
     expect(active.prompt.type).toBe("after_dark");
   });
 
+  it("runs Date Night as a five-step guided session", async () => {
+    const sessions = new InMemorySessionRepository();
+    const prompts = new StaticPromptCatalog();
+    const queueRefiller = new PromptQueueRefiller(prompts);
+    const startGameSession = new StartGameSessionUseCase(
+      sessions,
+      new FixedSessionIdGenerator("019ed5c9-03f7-7dc7-8660-f41abdeca21d"),
+      queueRefiller,
+    );
+    const handleAction = new HandleGameActionUseCase(sessions, queueRefiller);
+    const started = await startGameSession.execute({
+      guildId: "guild-1",
+      channelId: "channel-1",
+      startedByUserId: "user-1",
+      mode: "date_night",
+      mood: "romantic",
+      intensity: 2,
+    });
+
+    expect(started.status).toBe("session");
+    expect(started.session.mode).toBe("date_night");
+    expect(started.session.phase).toBe("lobby");
+
+    const joined = await handleAction.execute({
+      sessionId: started.session.id,
+      action: "join",
+      userId: "user-2",
+    });
+    const firstStep = await handleAction.execute({
+      sessionId: started.session.id,
+      action: "start_date_night",
+      userId: "user-1",
+    });
+
+    expect(joined.status).toBe("state");
+    if (joined.status !== "state") {
+      throw new Error("Expected state output.");
+    }
+    expect(joined.session.players).toEqual(["user-1", "user-2"]);
+    expect(firstStep.status).toBe("prompt");
+    if (firstStep.status !== "prompt") {
+      throw new Error("Expected prompt output.");
+    }
+    expect(firstStep.session.currentTurnIndex).toBe(0);
+    expect(firstStep.prompt.type).toBe("couple_question");
+    expect(firstStep.prompt.id).toContain("date-night-warm-up");
+
+    const skippedSameStep = await handleAction.execute({
+      sessionId: started.session.id,
+      action: "skip",
+      userId: "user-2",
+    });
+
+    expect(skippedSameStep.status).toBe("prompt");
+    if (skippedSameStep.status !== "prompt") {
+      throw new Error("Expected prompt output.");
+    }
+    expect(skippedSameStep.session.currentTurnIndex).toBe(0);
+    expect(skippedSameStep.prompt.id).toContain("date-night-warm-up");
+
+    const secondStep = await handleAction.execute({
+      sessionId: started.session.id,
+      action: "continue_date_night",
+      userId: "user-1",
+    });
+
+    expect(secondStep.status).toBe("prompt");
+    if (secondStep.status !== "prompt") {
+      throw new Error("Expected prompt output.");
+    }
+    expect(secondStep.session.currentTurnIndex).toBe(1);
+    expect(secondStep.prompt.id).toContain("date-night-play");
+
+    const thirdStep = await handleAction.execute({
+      sessionId: started.session.id,
+      action: "continue_date_night",
+      userId: "user-1",
+    });
+    const fourthStep = await handleAction.execute({
+      sessionId: started.session.id,
+      action: "continue_date_night",
+      userId: "user-1",
+    });
+    const fifthStep = await handleAction.execute({
+      sessionId: started.session.id,
+      action: "continue_date_night",
+      userId: "user-1",
+    });
+    const completed = await handleAction.execute({
+      sessionId: started.session.id,
+      action: "continue_date_night",
+      userId: "user-1",
+    });
+
+    expect(thirdStep.status).toBe("prompt");
+    expect(fourthStep.status).toBe("prompt");
+    expect(fifthStep.status).toBe("prompt");
+    expect(completed.status).toBe("state");
+    if (completed.status !== "state") {
+      throw new Error("Expected state output.");
+    }
+    expect(completed.session.phase).toBe("completed");
+    expect(completed.session.currentPrompt).toBeUndefined();
+  });
+
   it("handles quick prompt buttons and avoids immediate repeats when alternatives exist", async () => {
     const sessions = new InMemorySessionRepository();
     const sessionIds = new FixedSessionIdGenerator(

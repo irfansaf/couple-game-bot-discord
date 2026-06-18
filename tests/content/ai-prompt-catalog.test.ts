@@ -25,4 +25,15 @@ describe("aiPromptCatalog", () => {
     expect(prompt).toContain("non-explicit");
     expect(prompt).toContain("consent-first");
   });
+
+  it("adds Date Night step guidance when provided", () => {
+    const prompt = buildAiSystemPrompt({
+      promptType: "couple_question",
+      responseShape: "batch",
+      dateNightStep: "appreciation",
+    });
+
+    expect(prompt).toContain("Date Night appreciation");
+    expect(prompt).toContain("gratitude");
+  });
 });

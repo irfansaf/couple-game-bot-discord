@@ -76,13 +76,15 @@ Truth or Dare also has a lobby play context:
 
 Changing play context is host-only and only available before Start. The dare queue is scoped to the selected context.
 
-Truth, Dare, Couple Questions, This or That, and After Dark now run as contextual game sessions. Truth and Dare are available only inside the full Truth or Dare session.
+Truth, Dare, Couple Questions, This or That, After Dark, and Date Night now run as contextual game sessions. Truth and Dare are available only inside the full Truth or Dare session.
 
 Couple Questions starts as a lobby with `Join`, `Leave`, `Start`, `Rules`, and `End`. The host can start with 1 or more players, so it works solo, as a couple, or as a tiny private group. Once active, it uses `Answer`, `Next`, `Skip`, `Softer`, `Deeper`, and `End`. `Answer` opens a private modal for joined players; once every joined player answers, the bot reveals the answers together. Private answers are kept only in bot memory until reveal or round change, not persisted as history.
 
 After Dark is a consent-gated intimate mode for warmer adult couple prompts. It starts as a lobby, can start with 1 or more joined players, and keeps prompts sensual, non-explicit, pressure-free, and skippable. Its active controls are `Answer`, `Next`, `Skip`, `Softer`, `Warmer`, and `End`.
 
 This or That starts as a lobby with `Join`, `Leave`, `Start`, `Rules`, and `End`. After Start, each joined player secretly picks `Left` or `Right`; the bot reveals the split only after everyone has voted, then unlocks `Next`, `Skip`, `Softer`, and `End`.
+
+Date Night starts as a lobby with `Join`, `Leave`, `Start`, `Rules`, and `End`. After Start, it guides players through five steps: Warm-Up, Play, Closer, Appreciation, and Closing. Active controls are `Answer`, `Continue`, `Skip`, `Softer`, and `End`; private answers reuse the in-memory reveal flow and are not persisted.
 
 ## Scripts
 

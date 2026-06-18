@@ -20,6 +20,11 @@ This document defines the complete MVP game set for CoupleGame. Each mode should
 | Couple Questions | Cozy shared conversation prompts | Lobby -> prompt -> optional private answers -> reveal together -> next prompt | Lobby and private answers implemented |
 | This or That | Secret-vote preference comparison | Lobby -> choice prompt -> all players vote -> reveal -> next prompt | Advanced MVP implemented |
 | After Dark | Warmer adult-intimate couple prompts | Consent lobby -> prompt -> optional private answers -> reveal together -> next prompt | Implemented as non-explicit intimate mode |
+| Date Night | Guided mini-date sequence | Lobby -> five-step arc -> optional private answers -> closing card | Implemented as first rich replayability mode |
+
+## Rich Replayability Mode
+
+Date Night is the first rich mode after the MVP set. It should feel like a guided mini-date rather than an endless deck: lobby -> five-step arc -> optional private answers -> closing card. See `docs/date-night-design.md` for the detailed design and acceptance criteria.
 
 ## Couple Questions
 

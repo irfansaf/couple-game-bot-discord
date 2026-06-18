@@ -28,6 +28,7 @@ import { gameModes, moods } from "../../domain/entities/prompt";
 import {
   afterDarkMode,
   coupleQuestionMode,
+  dateNightMode,
   type GameSession,
 } from "../../domain/entities/game-session";
 import { createUserId } from "../../domain/value-objects/ids";
@@ -243,6 +244,10 @@ export class DiscordGameController {
     }
 
     if (output.status === "state") {
+      if (parsed.action === "continue_date_night") {
+        this.privateAnswers.clearSession(output.session.id);
+      }
+
       const card = buildSessionStateCard(
         output.session,
         output.view === undefined ? {} : { view: output.view },
@@ -299,7 +304,8 @@ export class DiscordGameController {
 
     if (!supportsPrivateAnswers(session) || session.currentPrompt === undefined) {
       await interaction.reply({
-        content: "Private answers are available on Couple Questions and After Dark prompts.",
+        content:
+          "Private answers are available on Couple Questions, After Dark, and Date Night prompts.",
         flags: MessageFlags.Ephemeral,
       });
       return;
@@ -452,6 +458,7 @@ function loadingLabelForAction(action: GameAction): string {
     start_couple_question: "Starting Couple Questions...",
     start_after_dark: "Starting After Dark...",
     start_this_or_that: "Starting This or That...",
+    start_date_night: "Starting Date Night...",
     rules: "Opening the rules...",
     set_context_meet: "Setting dares for in-person play...",
     set_context_e_meet: "Setting dares for remote play...",
@@ -461,6 +468,8 @@ function loadingLabelForAction(action: GameAction): string {
     couple_question: "Finding a couple question...",
     this_or_that: "Finding a this-or-that...",
     after_dark: "Finding an After Dark prompt...",
+    date_night: "Opening Date Night...",
+    continue_date_night: "Moving to the next Date Night step...",
     next: "Getting the next prompt ready...",
     skip: "Skipping to another prompt...",
     softer: "Making it softer...",
@@ -532,11 +541,19 @@ function formatModeName(session: GameSession): string {
     return "After Dark";
   }
 
+  if (session.mode === "date_night") {
+    return "Date Night";
+  }
+
   return "This game";
 }
 
 function supportsPrivateAnswers(session: GameSession): boolean {
-  return session.mode === coupleQuestionMode || session.mode === afterDarkMode;
+  return (
+    session.mode === coupleQuestionMode ||
+    session.mode === afterDarkMode ||
+    session.mode === dateNightMode
+  );
 }
 
 function parseStartOptions(interaction: ChatInputCommandInteraction) {

@@ -11,6 +11,10 @@ import {
   coupleQuestionMaxPlayers,
   coupleQuestionMode,
   currentTruthOrDarePlayer,
+  dateNightMaxPlayers,
+  dateNightMode,
+  dateNightStepForSession,
+  dateNightSteps,
   type PlayContext,
   thisOrThatMaxPlayers,
   thisOrThatMode,
@@ -44,6 +48,10 @@ export function buildPromptCard(session: GameSession, prompt: Prompt): GameCard 
 
   if (session.mode === afterDarkMode) {
     return buildAfterDarkPromptCard(session, prompt);
+  }
+
+  if (session.mode === dateNightMode) {
+    return buildDateNightPromptCard(session, prompt);
   }
 
   if (session.mode === thisOrThatMode) {
@@ -86,9 +94,7 @@ export function buildPrivateAnswerWaitingCard(
 
   return {
     embeds: [embed],
-    components: session.mode === afterDarkMode
-      ? buildAfterDarkButtons(session.id, false)
-      : buildCoupleQuestionButtons(session.id, false),
+    components: privateAnswerButtonsForSession(session, false),
   };
 }
 
@@ -108,9 +114,7 @@ export function buildPrivateAnswerRevealCard(
 
   return {
     embeds: [embed],
-    components: session.mode === afterDarkMode
-      ? buildAfterDarkRevealButtons(session.id, false)
-      : buildCoupleQuestionRevealButtons(session.id, false),
+    components: privateAnswerRevealButtonsForSession(session, false),
   };
 }
 
@@ -118,9 +122,15 @@ function buildPrivateAnswerEmbed(
   session: GameSession,
   prompt: Prompt,
 ): EmbedBuilder {
-  return session.mode === afterDarkMode
-    ? buildAfterDarkEmbed(session, prompt)
-    : buildCoupleQuestionEmbed(session, prompt);
+  if (session.mode === afterDarkMode) {
+    return buildAfterDarkEmbed(session, prompt);
+  }
+
+  if (session.mode === dateNightMode) {
+    return buildDateNightEmbed(session, prompt);
+  }
+
+  return buildCoupleQuestionEmbed(session, prompt);
 }
 
 function buildCoupleQuestionPromptCard(
@@ -178,6 +188,45 @@ function buildAfterDarkEmbed(
     .setFooter({
       text: `Round ${session.recentPromptIds.length} - Intensity ${intensityValue(
         session.intensity,
+      )} - ${formatPromptSource(prompt.source)}`,
+    });
+
+  if (prompt.followUp !== undefined) {
+    embed.addFields({
+      name: "Follow-up",
+      value: prompt.followUp,
+    });
+  }
+
+  return embed;
+}
+
+function buildDateNightPromptCard(
+  session: GameSession,
+  prompt: Prompt,
+): GameCard {
+  return {
+    embeds: [buildDateNightEmbed(session, prompt)],
+    components: buildDateNightButtons(session.id, false),
+  };
+}
+
+function buildDateNightEmbed(
+  session: GameSession,
+  prompt: Prompt,
+): EmbedBuilder {
+  const step = dateNightStepForSession(session) ?? "warm_up";
+  const embed = new EmbedBuilder()
+    .setTitle(
+      `Date Night - Step ${session.currentTurnIndex + 1} of ${
+        dateNightSteps.length
+      }: ${formatDateNightStep(step)}`,
+    )
+    .setDescription(prompt.text)
+    .setColor(0xf0b85a)
+    .setFooter({
+      text: `Intensity ${intensityValue(session.intensity)} - ${formatMood(
+        prompt.mood,
       )} - ${formatPromptSource(prompt.source)}`,
     });
 
@@ -409,6 +458,83 @@ function buildAfterDarkStateCard(
   };
 }
 
+function buildDateNightStateCard(
+  session: GameSession,
+  options: SessionCardOptions,
+): GameCard {
+  const embed = new EmbedBuilder().setColor(0xf0b85a).setFooter({
+    text: `Players ${session.players.length}/${dateNightMaxPlayers} - Intensity ${intensityValue(
+      session.intensity,
+    )}`,
+  });
+
+  if (session.phase === "lobby") {
+    embed
+      .setTitle("Date Night lobby")
+      .setDescription(
+        [
+          `Host: ${mention(session.hostUserId)}`,
+          `Players: ${formatPlayers(session.players)}`,
+        ].join("\n"),
+      )
+      .addFields({
+        name: "Tonight's arc",
+        value: dateNightSteps
+          .map((step, index) => `${index + 1}. ${formatDateNightStep(step)}`)
+          .join("\n"),
+      });
+
+    if (options.view === "rules") {
+      embed.addFields(
+        {
+          name: "Rules",
+          value:
+            "Join the lobby, then the host starts when everyone is ready. Date Night moves through five guided steps.",
+        },
+        {
+          name: "Comfort",
+          value:
+            "Answer privately if you want, Continue when ready, or use Skip, Softer, and End anytime.",
+        },
+      );
+    }
+
+    return {
+      embeds: [embed],
+      components: buildDateNightLobbyButtons(session.id, false),
+    };
+  }
+
+  if (session.phase === "completed") {
+    embed
+      .setTitle("Date Night complete")
+      .setDescription(
+        "That was the full arc. Take one soft thing from this with you.",
+      )
+      .setFooter({
+        text: `Steps completed ${dateNightSteps.length}/${dateNightSteps.length}`,
+      });
+
+    return {
+      embeds: [embed],
+      components: buildDateNightCompletedButtons(session.id, false),
+    };
+  }
+
+  if (session.currentPrompt !== undefined) {
+    return buildDateNightPromptCard(session, session.currentPrompt);
+  }
+
+  embed
+    .setTitle("Date Night")
+    .setDescription("Getting the first Date Night prompt ready.");
+
+  return {
+    embeds: [embed],
+    components: buildDateNightButtons(session.id, false),
+  };
+}
+
 export function buildSessionStateCard(
   session: GameSession,
   options: SessionCardOptions = {},
@@ -423,6 +549,10 @@ export function buildSessionStateCard(
 
   if (session.mode === afterDarkMode) {
     return buildAfterDarkStateCard(session, options);
+  }
+
+  if (session.mode === dateNightMode) {
+    return buildDateNightStateCard(session, options);
   }
 
   if (session.mode === thisOrThatMode) {
@@ -699,6 +829,83 @@ function buildAfterDarkLobbyButtons(
   ];
 }
 
+function buildDateNightButtons(
+  sessionId: string,
+  disabled: boolean,
+): ActionRowBuilder<ButtonBuilder>[] {
+  return [
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      gameButton("answer_private", sessionId, "Answer", ButtonStyle.Success, disabled),
+      gameButton(
+        "continue_date_night",
+        sessionId,
+        "Continue",
+        ButtonStyle.Primary,
+        disabled,
+      ),
+      gameButton("skip", sessionId, "Skip", ButtonStyle.Secondary, disabled),
+      gameButton("softer", sessionId, "Softer", ButtonStyle.Secondary, disabled),
+      gameButton("end", sessionId, "End", ButtonStyle.Danger, disabled),
+    ),
+  ];
+}
+
+function buildDateNightLobbyButtons(
+  sessionId: string,
+  disabled: boolean,
+): ActionRowBuilder<ButtonBuilder>[] {
+  return [
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      gameButton("join", sessionId, "Join", ButtonStyle.Success, disabled),
+      gameButton("leave", sessionId, "Leave", ButtonStyle.Secondary, disabled),
+      gameButton("start_date_night", sessionId, "Start", ButtonStyle.Primary, disabled),
+      gameButton("rules", sessionId, "Rules", ButtonStyle.Secondary, disabled),
+      gameButton("end", sessionId, "End", ButtonStyle.Danger, disabled),
+    ),
+  ];
+}
+
+function buildDateNightCompletedButtons(
+  sessionId: string,
+  disabled: boolean,
+): ActionRowBuilder<ButtonBuilder>[] {
+  return [
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      gameButton("end", sessionId, "End", ButtonStyle.Danger, disabled),
+    ),
+  ];
+}
+
+function privateAnswerButtonsForSession(
+  session: GameSession,
+  disabled: boolean,
+): ActionRowBuilder<ButtonBuilder>[] {
+  if (session.mode === afterDarkMode) {
+    return buildAfterDarkButtons(session.id, disabled);
+  }
+
+  if (session.mode === dateNightMode) {
+    return buildDateNightButtons(session.id, disabled);
+  }
+
+  return buildCoupleQuestionButtons(session.id, disabled);
+}
+
+function privateAnswerRevealButtonsForSession(
+  session: GameSession,
+  disabled: boolean,
+): ActionRowBuilder<ButtonBuilder>[] {
+  if (session.mode === afterDarkMode) {
+    return buildAfterDarkRevealButtons(session.id, disabled);
+  }
+
+  if (session.mode === dateNightMode) {
+    return buildDateNightButtons(session.id, disabled);
+  }
+
+  return buildCoupleQuestionRevealButtons(session.id, disabled);
+}
+
 function buildThisOrThatLobbyButtons(
   sessionId: string,
   disabled: boolean,
@@ -882,7 +1089,23 @@ function formatSessionMode(mode: GameSession["mode"]): string {
     return "Truth or Dare";
   }
 
+  if (mode === dateNightMode) {
+    return "Date Night";
+  }
+
   return formatPromptType(mode);
+}
+
+function formatDateNightStep(step: (typeof dateNightSteps)[number]): string {
+  const labels = {
+    warm_up: "Warm-Up",
+    play: "Play",
+    closer: "Closer",
+    appreciation: "Appreciation",
+    closing: "Closing",
+  } satisfies Record<(typeof dateNightSteps)[number], string>;
+
+  return labels[step];
 }
 
 function formatMood(mood: Mood): string {

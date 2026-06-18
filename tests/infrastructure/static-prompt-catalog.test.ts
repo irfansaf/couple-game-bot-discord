@@ -62,4 +62,18 @@ describe("StaticPromptCatalog", () => {
     expect(prompt?.type).toBe("after_dark");
     expect(prompt?.text.toLowerCase()).not.toContain("explicit");
   });
+
+  it("serves step-specific Date Night prompts", async () => {
+    const prompt = await new StaticPromptCatalog().select({
+      type: "couple_question",
+      mood: "romantic",
+      intensity: createIntensity(2),
+      recentPromptIds: [],
+      recentPromptTexts: [],
+      dateNightStep: "appreciation",
+    });
+
+    expect(prompt?.id).toContain("date-night-appreciation");
+    expect(prompt?.type).toBe("couple_question");
+  });
 });

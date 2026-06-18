@@ -8,7 +8,7 @@ AI generation should come after the static Discord loop works. The AI provider m
 
 Truth or Dare has its own turn-based design in `docs/truth-or-dare-design.md`. Treat it as a mode-specific game loop with lobby, joined players, current player, and contextual controls.
 
-The complete MVP game-mode design lives in `docs/mvp-game-designs.md`. Use it as the source of truth for Truth or Dare, Couple Questions, This or That, and shared mode-specific control rules.
+The complete MVP game-mode design lives in `docs/mvp-game-designs.md`. Use it as the source of truth for Truth or Dare, Couple Questions, This or That, and shared mode-specific control rules. Date Night is the first rich mode after the MVP set; its design lives in `docs/date-night-design.md`.
 
 ## MVP Goals
 
@@ -82,6 +82,7 @@ This slice should prove the bot feels like a game host before adding AI.
 
 ### P3 - Replayability
 
+- Done: Date Night guided sequence mode.
 - Daily couple quest.
 - More prompt packs and moods.
 - Lightweight session recap that avoids storing sensitive answers.

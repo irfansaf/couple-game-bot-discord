@@ -16,7 +16,8 @@ export type GameSessionPhase =
   | "turn_choice"
   | "prompt_revealed"
   | "voting"
-  | "revealed";
+  | "revealed"
+  | "completed";
 export type TruthOrDareChoice = "truth" | "dare";
 export type ThisOrThatChoice = "left" | "right";
 export const playContexts = ["meet", "e_meet"] as const;
@@ -34,7 +35,18 @@ export const thisOrThatMaxPlayers = 8;
 export const afterDarkMode = "after_dark" satisfies GameMode;
 export const afterDarkMinPlayers = 1;
 export const afterDarkMaxPlayers = 8;
+export const dateNightMode = "date_night" satisfies GameMode;
+export const dateNightMinPlayers = 1;
+export const dateNightMaxPlayers = 8;
 export const defaultPlayContext = "e_meet" satisfies PlayContext;
+export const dateNightSteps = [
+  "warm_up",
+  "play",
+  "closer",
+  "appreciation",
+  "closing",
+] as const;
+export type DateNightStep = (typeof dateNightSteps)[number];
 
 export interface ThisOrThatVote {
   readonly userId: UserId;
@@ -322,6 +334,123 @@ export function startAfterDarkSession(session: GameSession): GameSession {
     currentPrompt: undefined,
     promptQueue: [],
     promptQueueType: afterDarkMode,
+    choiceVotes: [],
+  };
+}
+
+export function joinDateNightSession(
+  session: GameSession,
+  userId: UserId,
+  maxPlayers = dateNightMaxPlayers,
+): GameSession {
+  assertActive(session, "Cannot join an ended session.");
+  assertDateNight(session, "Cannot join a non Date Night session.");
+
+  if (session.phase !== "lobby") {
+    throw new DomainValidationError("Cannot join after Date Night has started.");
+  }
+
+  if (session.players.includes(userId)) {
+    return session;
+  }
+
+  if (session.players.length >= maxPlayers) {
+    throw new DomainValidationError("Date Night lobby is full.");
+  }
+
+  return {
+    ...session,
+    players: [...session.players, userId],
+  };
+}
+
+export function leaveDateNightSession(
+  session: GameSession,
+  userId: UserId,
+  now = new Date(),
+): GameSession {
+  assertActive(session, "Cannot leave an ended session.");
+  assertDateNight(session, "Cannot leave a non Date Night session.");
+
+  if (session.phase !== "lobby") {
+    throw new DomainValidationError("Cannot leave after Date Night has started.");
+  }
+
+  const players = session.players.filter((playerId) => playerId !== userId);
+
+  if (players.length === session.players.length) {
+    return session;
+  }
+
+  if (players.length === 0) {
+    return endGameSession(session, now);
+  }
+
+  const firstPlayer = players[0];
+
+  if (firstPlayer === undefined) {
+    return endGameSession(session, now);
+  }
+
+  return {
+    ...session,
+    hostUserId: players.includes(session.hostUserId) ? session.hostUserId : firstPlayer,
+    players,
+  };
+}
+
+export function startDateNightSession(session: GameSession): GameSession {
+  assertActive(session, "Cannot start an ended session.");
+  assertDateNight(session, "Cannot start a non Date Night session.");
+
+  if (session.phase !== "lobby") {
+    return session;
+  }
+
+  if (session.players.length < dateNightMinPlayers) {
+    throw new DomainValidationError("Date Night needs at least 1 player.");
+  }
+
+  return {
+    ...session,
+    phase: "prompt_revealed",
+    currentPrompt: undefined,
+    promptQueue: [],
+    promptQueueType: "couple_question",
+    choiceVotes: [],
+    currentTurnIndex: 0,
+  };
+}
+
+export function advanceDateNightStep(session: GameSession): GameSession {
+  assertActive(session, "Cannot advance an ended session.");
+  assertDateNight(session, "Cannot advance a non Date Night session.");
+
+  if (session.currentTurnIndex >= dateNightSteps.length - 1) {
+    return completeDateNightSession(session);
+  }
+
+  return {
+    ...session,
+    currentTurnIndex: session.currentTurnIndex + 1,
+    phase: "prompt_revealed",
+    currentPrompt: undefined,
+    promptQueue: [],
+    promptQueueType: "couple_question",
+    choiceVotes: [],
+  };
+}
+
+export function completeDateNightSession(session: GameSession): GameSession {
+  assertActive(session, "Cannot complete an ended session.");
+  assertDateNight(session, "Cannot complete a non Date Night session.");
+
+  return {
+    ...session,
+    phase: "completed",
+    currentPrompt: undefined,
+    promptQueue: [],
+    promptQueueType: undefined,
     choiceVotes: [],
   };
 }
@@ -666,7 +795,21 @@ export function promptTypeForQueue(session: GameSession): PromptType | null {
     return session.promptQueueType ?? session.currentPrompt?.type ?? null;
   }
 
+  if (session.mode === dateNightMode) {
+    return "couple_question";
+  }
+
   return session.mode;
+}
+
+export function dateNightStepForSession(
+  session: GameSession,
+): DateNightStep | undefined {
+  if (session.mode !== dateNightMode || session.phase === "completed") {
+    return undefined;
+  }
+
+  return dateNightSteps[session.currentTurnIndex] ?? dateNightSteps[0];
 }
 
 export function endGameSession(session: GameSession, now = new Date()): GameSession {
@@ -715,11 +858,18 @@ function assertAfterDark(session: GameSession, message: string): void {
   }
 }
 
+function assertDateNight(session: GameSession, message: string): void {
+  if (session.mode !== dateNightMode) {
+    throw new DomainValidationError(message);
+  }
+}
+
 function isLobbyMode(mode: GameMode): boolean {
   return (
     mode === truthOrDareMode ||
     mode === coupleQuestionMode ||
     mode === thisOrThatMode ||
-    mode === afterDarkMode
+    mode === afterDarkMode ||
+    mode === dateNightMode
   );
 }

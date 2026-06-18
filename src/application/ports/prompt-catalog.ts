@@ -1,5 +1,5 @@
 import type { Mood, Prompt, PromptType } from "../../domain/entities/prompt";
-import type { PlayContext } from "../../domain/entities/game-session";
+import type { DateNightStep, PlayContext } from "../../domain/entities/game-session";
 import type { PromptId } from "../../domain/value-objects/ids";
 import type { Intensity } from "../../domain/value-objects/intensity";
 
@@ -10,6 +10,7 @@ export interface PromptSelectionInput {
   readonly recentPromptIds: readonly PromptId[];
   readonly recentPromptTexts: readonly string[];
   readonly playContext?: PlayContext | undefined;
+  readonly dateNightStep?: DateNightStep | undefined;
 }
 
 export interface PromptCatalog {

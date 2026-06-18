@@ -1,4 +1,5 @@
 import {
+  dateNightStepForSession,
   enqueuePrompts,
   promptTypeForQueue,
   type GameSession,
@@ -42,6 +43,7 @@ export class PromptQueueRefiller {
           ...session.promptQueue.map((prompt) => prompt.text),
         ],
         playContext: session.playContext,
+        dateNightStep: dateNightStepForSession(session),
       },
       missingPromptCount,
     );

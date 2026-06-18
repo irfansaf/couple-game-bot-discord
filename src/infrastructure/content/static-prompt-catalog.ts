@@ -63,7 +63,9 @@ export class StaticPromptCatalog implements PromptCatalog {
     const targetIntensity = intensityValue(input.intensity);
     const sameType = this.templates.filter(
       (template) =>
-        template.type === input.type && matchesPlayContext(template, input),
+        template.type === input.type &&
+        matchesPlayContext(template, input) &&
+        matchesDateNightStep(template, input),
     );
 
     return sameType
@@ -77,6 +79,17 @@ export class StaticPromptCatalog implements PromptCatalog {
       .sort((left, right) => right.score - left.score)
       .map(({ template }) => template);
   }
+}
+
+function matchesDateNightStep(
+  template: StaticPromptTemplate,
+  input: PromptSelectionInput,
+): boolean {
+  if (input.dateNightStep === undefined) {
+    return template.dateNightStep === undefined;
+  }
+
+  return template.dateNightStep === input.dateNightStep;
 }
 
 function matchesPlayContext(

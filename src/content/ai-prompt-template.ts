@@ -18,6 +18,7 @@ export function buildQuestionGenerationMessages(
   const systemContent = buildAiSystemPrompt({
     promptType: input.type,
     responseShape: "single",
+    dateNightStep: input.dateNightStep,
   });
   const recentQuestions = fitRecentQuestionsToContext({
     input,
@@ -45,6 +46,7 @@ export function buildBatchQuestionGenerationMessages(
   const systemContent = buildAiSystemPrompt({
     promptType: input.type,
     responseShape: "batch",
+    dateNightStep: input.dateNightStep,
   });
   const recentQuestions = fitRecentQuestionsToContext({
     input,
@@ -106,6 +108,7 @@ function buildUserPrompt(
     mood: input.mood,
     intensity: intensityValue(input.intensity),
     playContext: input.playContext ?? "e_meet",
+    dateNightStep: input.dateNightStep,
     recentQuestions,
   });
 }

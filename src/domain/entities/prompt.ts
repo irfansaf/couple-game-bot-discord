@@ -16,6 +16,7 @@ export const gameModes = [
   "couple_question",
   "this_or_that",
   "after_dark",
+  "date_night",
 ] as const;
 
 export type GameMode = (typeof gameModes)[number];

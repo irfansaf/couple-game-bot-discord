@@ -98,6 +98,26 @@ describe("game button ids", () => {
     });
   });
 
+  it("round-trips Date Night session buttons", () => {
+    const startButtonId = createGameButtonId(
+      "start_date_night",
+      "019ed5c9-03f7-7dc7-8660-f41abdeca21d",
+    );
+    const continueButtonId = createGameButtonId(
+      "continue_date_night",
+      "019ed5c9-03f7-7dc7-8660-f41abdeca21d",
+    );
+
+    expect(parseGameButtonId(startButtonId)).toEqual({
+      action: "start_date_night",
+      sessionId: "019ed5c9-03f7-7dc7-8660-f41abdeca21d",
+    });
+    expect(parseGameButtonId(continueButtonId)).toEqual({
+      action: "continue_date_night",
+      sessionId: "019ed5c9-03f7-7dc7-8660-f41abdeca21d",
+    });
+  });
+
   it("round-trips Truth or Dare session buttons", () => {
     const buttonId = createGameButtonId(
       "start_tod",

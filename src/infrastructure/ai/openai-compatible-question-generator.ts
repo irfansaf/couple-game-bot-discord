@@ -199,6 +199,7 @@ function buildAiRequestLogContext(
     promptType: input.type,
     mood: input.mood,
     playContext: input.playContext ?? null,
+    dateNightStep: input.dateNightStep ?? null,
     count,
     recentQuestionCount: input.recentQuestions.length,
   };
