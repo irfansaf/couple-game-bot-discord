@@ -31,6 +31,7 @@ const environmentSchema = z.object({
   AI_THINKING_MODE: z
     .enum(["auto", "disabled", "enabled", "provider_default"])
     .default("auto"),
+  SESSION_TTL_MINUTES: z.coerce.number().int().min(5).max(4320).default(360),
   DATABASE_URL: z
     .string()
     .url("DATABASE_URL must be a valid Postgres URL.")
@@ -99,6 +100,10 @@ export interface RuntimeConfig {
     readonly url: string;
     readonly ssl: boolean;
   };
+  readonly sessions: {
+    readonly ttlMinutes: number;
+    readonly ttlMs: number;
+  };
 }
 
 export function loadEnv(
@@ -152,6 +157,10 @@ export function loadEnv(
       url: parsed.DATABASE_URL,
       ssl: parsed.POSTGRES_SSL === "true",
     },
+    sessions: {
+      ttlMinutes: parsed.SESSION_TTL_MINUTES,
+      ttlMs: parsed.SESSION_TTL_MINUTES * 60 * 1000,
+    },
   };
 }
 
@@ -184,6 +193,9 @@ export function summarizeConfig(config: RuntimeConfig): Record<string, unknown> 
     database: {
       urlConfigured: config.database.url.length > 0,
       ssl: config.database.ssl,
+    },
+    sessions: {
+      ttlMinutes: config.sessions.ttlMinutes,
     },
   };
 }

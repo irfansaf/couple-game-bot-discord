@@ -54,6 +54,7 @@ export function createApp(config: RuntimeConfig) {
     sessions,
     sessionIds,
     queueRefiller,
+    config.sessions.ttlMs,
   );
   const handleGameAction = new HandleGameActionUseCase(sessions, queueRefiller);
   const getGameSession = new GetGameSessionUseCase(sessions);

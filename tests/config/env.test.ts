@@ -19,6 +19,10 @@ describe("loadEnv", () => {
 
     expect(config.ai.enabled).toBe(false);
     expect(config.database.ssl).toBe(false);
+    expect(config.sessions).toEqual({
+      ttlMinutes: 360,
+      ttlMs: 21600000,
+    });
   });
 
   it("enables AI only when key and model are configured together", () => {
@@ -60,6 +64,7 @@ describe("loadEnv", () => {
       AI_CAPTURE_BATCH_SIZE: "5",
       AI_CAPTURE_FLUSH_INTERVAL_MS: "2500",
       AI_THINKING_MODE: "disabled",
+      SESSION_TTL_MINUTES: "120",
     });
 
     expect(config.ai).toMatchObject({
@@ -76,6 +81,10 @@ describe("loadEnv", () => {
         flushIntervalMs: 2500,
       },
       thinkingMode: "disabled",
+    });
+    expect(config.sessions).toEqual({
+      ttlMinutes: 120,
+      ttlMs: 7200000,
     });
   });
 

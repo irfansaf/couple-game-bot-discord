@@ -69,6 +69,7 @@ const sessionRowSchema = z.object({
   ]),
   status: z.enum(["active", "ended"]),
   createdAt: z.date(),
+  expiresAt: z.date().nullable(),
   endedAt: z.date().nullable(),
 });
 
@@ -102,6 +103,7 @@ export class PostgresSessionRepository implements SessionRepository {
         phase: session.phase,
         status: session.status,
         createdAt: session.createdAt,
+        expiresAt: session.expiresAt ?? null,
         endedAt: session.endedAt ?? null,
       })
       .onConflictDoUpdate({
@@ -124,6 +126,7 @@ export class PostgresSessionRepository implements SessionRepository {
           currentTurnIndex: session.currentTurnIndex,
           phase: session.phase,
           status: session.status,
+          expiresAt: session.expiresAt ?? null,
           endedAt: session.endedAt ?? null,
         },
       });
@@ -145,6 +148,7 @@ export class PostgresSessionRepository implements SessionRepository {
 function toDomain(row: SessionRow): GameSession {
   const parsed = sessionRowSchema.parse(row);
   const endedAt = parsed.endedAt ?? undefined;
+  const expiresAt = parsed.expiresAt ?? undefined;
 
   return {
     id: createSessionId(parsed.id),
@@ -171,6 +175,7 @@ function toDomain(row: SessionRow): GameSession {
     phase: parsed.phase as GameSessionPhase,
     status: parsed.status as GameSessionStatus,
     createdAt: parsed.createdAt,
+    ...(expiresAt === undefined ? {} : { expiresAt }),
     ...(endedAt === undefined ? {} : { endedAt }),
   };
 }

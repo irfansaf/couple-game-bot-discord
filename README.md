@@ -30,12 +30,15 @@ AI_CAPTURE_OUTPUTS=false
 AI_CAPTURE_BATCH_SIZE=20
 AI_CAPTURE_FLUSH_INTERVAL_MS=10000
 AI_THINKING_MODE=auto
+SESSION_TTL_MINUTES=360
 LOG_LEVEL=debug
 ```
 
 When AI is configured, the game loop tries AI-generated prompts first and falls back to reviewed static prompts if the provider fails, times out, or returns invalid/unsafe content.
 
 The bot keeps a small prompt queue per session. It fills the queue in batches, shows the first prompt, and refills in the background when the queue gets low so most button clicks feel instant.
+
+Game sessions expire after `SESSION_TTL_MINUTES` so old Discord buttons cannot keep mutating stale games forever. The default is 360 minutes. Expiry is stored in Postgres with the session row, which keeps the first production version simple and horizontally safe enough without adding Redis yet.
 
 Each session stores recent prompt IDs and recent prompt text. AI generation receives the recent text history so it can avoid repeating the same idea, while static fallback avoids recently used static IDs.
 

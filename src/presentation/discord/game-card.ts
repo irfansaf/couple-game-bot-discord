@@ -590,6 +590,21 @@ export function buildEndedCard(session: GameSession): GameCard {
   };
 }
 
+export function buildExpiredCard(session: GameSession): GameCard {
+  const embed = new EmbedBuilder()
+    .setTitle("Session expired")
+    .setDescription("This game sat quiet for a while, so I wrapped it up.")
+    .setColor(0x8a94a6)
+    .setFooter({
+      text: `Rounds played ${session.recentPromptIds.length}`,
+    });
+
+  return {
+    embeds: [embed],
+    components: buildLoadingButtons(session.id),
+  };
+}
+
 export function buildLoadingCard(
   sessionId: string,
   actionLabel = "Getting the next prompt ready...",

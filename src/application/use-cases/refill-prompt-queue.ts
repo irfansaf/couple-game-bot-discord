@@ -1,5 +1,9 @@
 import { createSessionId } from "../../domain/value-objects/ids";
 import {
+  expireGameSession,
+  isGameSessionExpired,
+} from "../../domain/entities/game-session";
+import {
   PromptQueueRefiller,
   promptQueueRefillThreshold,
 } from "../services/prompt-queue-refiller";
@@ -7,6 +11,7 @@ import type { SessionRepository } from "../ports/session-repository";
 
 export interface RefillPromptQueueInput {
   readonly sessionId: string;
+  readonly now?: Date;
 }
 
 export type RefillPromptQueueOutput =
@@ -16,7 +21,11 @@ export type RefillPromptQueueOutput =
     }
   | {
       readonly status: "skipped";
-      readonly reason: "missing_session" | "inactive_session" | "queue_above_threshold";
+      readonly reason:
+        | "missing_session"
+        | "inactive_session"
+        | "expired_session"
+        | "queue_above_threshold";
     };
 
 export class RefillPromptQueueUseCase {
@@ -36,6 +45,12 @@ export class RefillPromptQueueUseCase {
 
     if (session.status !== "active") {
       return { status: "skipped", reason: "inactive_session" };
+    }
+
+    if (isGameSessionExpired(session, input.now)) {
+      await this.sessions.save(expireGameSession(session, input.now));
+
+      return { status: "skipped", reason: "expired_session" };
     }
 
     if (session.promptQueue.length > promptQueueRefillThreshold) {

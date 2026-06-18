@@ -36,6 +36,7 @@ import type { Logger } from "../../infrastructure/logging/logger";
 import { parseGameButtonId } from "./button-ids";
 import {
   buildEndedCard,
+  buildExpiredCard,
   buildLoadingCard,
   buildPrivateAnswerRevealCard,
   buildPrivateAnswerWaitingCard,
@@ -204,6 +205,21 @@ export class DiscordGameController {
       return;
     }
 
+    if (output.status === "expired_session") {
+      this.privateAnswers.clearSession(output.session.id);
+      const card = buildExpiredCard(output.session);
+
+      await interaction.editReply({
+        embeds: card.embeds,
+        components: card.components,
+      });
+      await interaction.followUp({
+        content: "That session expired. Start a fresh one with `/game start`.",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
     if (output.status === "missing_prompt") {
       const card = buildCurrentSessionCard(output.session);
 
@@ -300,6 +316,15 @@ export class DiscordGameController {
       return;
     }
 
+    if (output.status === "inactive_session" || output.status === "expired_session") {
+      this.privateAnswers.clearSession(output.session.id);
+      await interaction.reply({
+        content: "That session is no longer active. Start a fresh one with `/game start`.",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
     const session = output.session;
 
     if (!supportsPrivateAnswers(session) || session.currentPrompt === undefined) {
@@ -363,6 +388,15 @@ export class DiscordGameController {
     if (output.status === "missing_session") {
       await interaction.reply({
         content: "I cannot find that game anymore. Start a fresh one with `/game start`.",
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    if (output.status === "inactive_session" || output.status === "expired_session") {
+      this.privateAnswers.clearSession(output.session.id);
+      await interaction.reply({
+        content: "That private answer round is no longer active.",
         flags: MessageFlags.Ephemeral,
       });
       return;

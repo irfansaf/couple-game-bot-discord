@@ -19,6 +19,8 @@ import type { SessionIdGenerator } from "../ports/session-id-generator";
 import type { SessionRepository } from "../ports/session-repository";
 import { PromptQueueRefiller } from "../services/prompt-queue-refiller";
 
+export const defaultSessionTtlMs = 6 * 60 * 60 * 1000;
+
 export interface StartGameSessionInput {
   readonly guildId: string;
   readonly channelId: string;
@@ -45,11 +47,13 @@ export class StartGameSessionUseCase {
     private readonly sessions: SessionRepository,
     private readonly sessionIds: SessionIdGenerator,
     private readonly queueRefiller: PromptQueueRefiller,
+    private readonly sessionTtlMs = defaultSessionTtlMs,
   ) {}
 
   public async execute(
     input: StartGameSessionInput,
   ): Promise<StartGameSessionOutput> {
+    const now = input.now ?? new Date();
     const sessionInput = {
       id: await this.sessionIds.next(),
       guildId: createGuildId(input.guildId),
@@ -58,7 +62,8 @@ export class StartGameSessionUseCase {
       mode: input.mode ?? "couple_question",
       mood: input.mood ?? "cozy",
       intensity: createIntensity(input.intensity ?? 1),
-      ...(input.now === undefined ? {} : { now: input.now }),
+      now,
+      expiresAt: new Date(now.getTime() + this.sessionTtlMs),
     };
 
     const session = createGameSession(sessionInput);

@@ -29,6 +29,7 @@ export const gameSessions = pgTable("game_sessions", {
   phase: text("phase").notNull().default("prompt_revealed"),
   status: text("status").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
   endedAt: timestamp("ended_at", { withTimezone: true }),
 });
 

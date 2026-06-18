@@ -50,6 +50,13 @@
       "when": 1781740025847,
       "tag": "0006_eminent_the_hood",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1781760288294,
+      "tag": "0007_typical_sabretooth",
+      "breakpoints": true
     }
   ]
 }

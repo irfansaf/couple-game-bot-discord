@@ -15,6 +15,8 @@ import {
   dateNightMode,
   dequeuePrompt,
   endGameSession,
+  expireGameSession,
+  isGameSessionExpired,
   joinAfterDarkSession,
   joinCoupleQuestionSession,
   joinDateNightSession,
@@ -134,6 +136,10 @@ export type HandleGameActionOutput =
       readonly session: GameSession;
     }
   | {
+      readonly status: "expired_session";
+      readonly session: GameSession;
+    }
+  | {
       readonly status: "missing_prompt";
       readonly session: GameSession;
     };
@@ -155,6 +161,14 @@ export class HandleGameActionUseCase {
 
     if (session.status !== "active") {
       return { status: "inactive_session", session };
+    }
+
+    if (isGameSessionExpired(session, input.now)) {
+      const expiredSession = expireGameSession(session, input.now);
+
+      await this.sessions.save(expiredSession);
+
+      return { status: "expired_session", session: expiredSession };
     }
 
     if (input.action === "end") {

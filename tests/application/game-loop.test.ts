@@ -35,9 +35,52 @@ describe("static game loop", () => {
     expect(output.session.mode).toBe("couple_question");
     expect(output.session.phase).toBe("lobby");
     expect(output.session.players).toEqual(["user-1"]);
+    expect(output.session.expiresAt).toBeInstanceOf(Date);
     expect(output.session.recentPromptIds).toEqual([]);
     expect(output.session.recentPromptTexts).toEqual([]);
     expect(output.session.promptQueue).toEqual([]);
+    expect(await sessions.findById(output.session.id)).toEqual(output.session);
+  });
+
+  it("expires stale sessions before handling old buttons", async () => {
+    const sessions = new InMemorySessionRepository();
+    const prompts = new StaticPromptCatalog();
+    const queueRefiller = new PromptQueueRefiller(prompts);
+    const startGameSession = new StartGameSessionUseCase(
+      sessions,
+      new FixedSessionIdGenerator("019ed5c9-03f7-7dc7-8660-f41abdeca21d"),
+      queueRefiller,
+      60_000,
+    );
+    const handleAction = new HandleGameActionUseCase(sessions, queueRefiller);
+    const now = new Date("2026-06-18T00:00:00.000Z");
+    const started = await startGameSession.execute({
+      guildId: "guild-1",
+      channelId: "channel-1",
+      startedByUserId: "user-1",
+      mode: "couple_question",
+      now,
+    });
+
+    expect(started.session.expiresAt).toEqual(
+      new Date("2026-06-18T00:01:00.000Z"),
+    );
+
+    const output = await handleAction.execute({
+      sessionId: started.session.id,
+      action: "start_couple_question",
+      userId: "user-1",
+      now: new Date("2026-06-18T00:01:00.000Z"),
+    });
+
+    expect(output.status).toBe("expired_session");
+    if (output.status !== "expired_session") {
+      throw new Error("Expected expired session output.");
+    }
+    expect(output.session.status).toBe("ended");
+    expect(output.session.endedAt).toEqual(
+      new Date("2026-06-18T00:01:00.000Z"),
+    );
     expect(await sessions.findById(output.session.id)).toEqual(output.session);
   });
 

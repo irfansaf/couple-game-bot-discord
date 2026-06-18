@@ -73,6 +73,7 @@ export interface GameSession {
   readonly phase: GameSessionPhase;
   readonly status: GameSessionStatus;
   readonly createdAt: Date;
+  readonly expiresAt?: Date;
   readonly endedAt?: Date;
 }
 
@@ -85,12 +86,14 @@ export interface CreateGameSessionInput {
   readonly mood: Mood;
   readonly intensity: Intensity;
   readonly now?: Date;
+  readonly expiresAt?: Date;
 }
 
 export function createGameSession(input: CreateGameSessionInput): GameSession {
   const phase = isLobbyMode(input.mode)
     ? "lobby"
     : "prompt_revealed";
+  const createdAt = input.now ?? new Date();
 
   return {
     id: input.id,
@@ -109,7 +112,8 @@ export function createGameSession(input: CreateGameSessionInput): GameSession {
     currentTurnIndex: 0,
     phase,
     status: "active",
-    createdAt: input.now ?? new Date(),
+    createdAt,
+    ...(input.expiresAt === undefined ? {} : { expiresAt: input.expiresAt }),
   };
 }
 
@@ -826,6 +830,24 @@ export function endGameSession(session: GameSession, now = new Date()): GameSess
     choiceVotes: [],
     endedAt: now,
   };
+}
+
+export function isGameSessionExpired(
+  session: GameSession,
+  now = new Date(),
+): boolean {
+  return (
+    session.status === "active" &&
+    session.expiresAt !== undefined &&
+    session.expiresAt.getTime() <= now.getTime()
+  );
+}
+
+export function expireGameSession(
+  session: GameSession,
+  now = new Date(),
+): GameSession {
+  return endGameSession(session, now);
 }
 
 function assertActive(session: GameSession, message: string): void {
