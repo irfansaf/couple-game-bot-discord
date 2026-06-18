@@ -141,6 +141,40 @@ describe("OpenAiCompatibleQuestionGenerator", () => {
     expect(prompts.map((prompt) => prompt.source)).toEqual(["ai", "ai"]);
   });
 
+  it("accepts provider batches returned as bare arrays", async () => {
+    let calls = 0;
+
+    globalThis.fetch = Object.assign(async () => {
+      calls += 1;
+
+      return new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify([
+                  {
+                    type: "truth",
+                    mood: "cozy",
+                    intensity: 1,
+                    question: "What is one sweet thing you want more of?",
+                    safetyNotes: [],
+                  },
+                ]),
+              },
+            },
+          ],
+        }),
+        { status: 200 },
+      );
+    }, originalFetch);
+
+    const prompt = await new OpenAiCompatibleQuestionGenerator(config).generate(input);
+
+    expect(calls).toBe(1);
+    expect(prompt.text).toBe("What is one sweet thing you want more of?");
+  });
+
   it("treats an empty follow-up as omitted", async () => {
     globalThis.fetch = Object.assign(async () =>
       new Response(

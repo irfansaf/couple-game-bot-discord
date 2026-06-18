@@ -5,8 +5,8 @@ import type {
 import type { AiProviderConfig } from "../../config/env";
 import {
   chatCompletionCaptureSchema,
-  generatedAiQuestionBatchSchema,
   generatedAiQuestionToPrompt,
+  normalizeGeneratedAiOutputPayload,
 } from "../../content/ai-generated-output";
 import {
   buildBatchQuestionGenerationMessages,
@@ -75,9 +75,9 @@ export class OpenAiCompatibleQuestionGenerator implements QuestionGenerator {
             content: completion,
           }),
         );
-        const generatedBatch = generatedAiQuestionBatchSchema.parse(
-          JSON.parse(completion) as unknown,
-        );
+        const generatedBatch = normalizeGeneratedAiOutputPayload({
+          content: completion,
+        });
         const prompts = generatedBatch.questions.slice(0, count).map((question) =>
           generatedAiQuestionToPrompt(question, this.safetyPolicy),
         );

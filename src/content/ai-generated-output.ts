@@ -75,6 +75,10 @@ export function normalizeGeneratedAiOutputPayload(
     return normalizeGeneratedAiOutputPayload(JSON.parse(payload.content) as unknown);
   }
 
+  if (Array.isArray(payload)) {
+    return generatedAiQuestionBatchSchema.parse({ questions: payload });
+  }
+
   if (isRecord(payload) && "questions" in payload) {
     return generatedAiQuestionBatchSchema.parse(payload);
   }

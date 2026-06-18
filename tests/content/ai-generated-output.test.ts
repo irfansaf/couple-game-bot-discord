@@ -52,6 +52,24 @@ describe("ai generated output validation", () => {
     expect(batch.questions[0]?.type).toBe("after_dark");
   });
 
+  it("accepts provider batches returned as bare arrays", () => {
+    const result = validateGeneratedAiOutputPayload([
+      {
+        type: "after_dark",
+        mood: "flirty_safe",
+        intensity: 2,
+        question: "What private compliment would feel warm tonight?",
+        safetyNotes: [],
+      },
+    ]);
+
+    expect(result).toEqual({
+      status: "valid",
+      questionCount: 1,
+      errors: [],
+    });
+  });
+
   it("reports schema and safety failures", () => {
     const unsafe = validateGeneratedAiOutputPayload({
       questions: [

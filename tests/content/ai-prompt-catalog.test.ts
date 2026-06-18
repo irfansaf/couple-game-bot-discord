@@ -20,6 +20,7 @@ describe("aiPromptCatalog", () => {
     });
 
     expect(prompt).toContain("questions array");
+    expect(prompt).toContain("do not return a bare array");
     expect(prompt).toContain("after_dark");
     expect(prompt).toContain("non-explicit");
     expect(prompt).toContain("consent-first");

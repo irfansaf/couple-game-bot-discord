@@ -18,7 +18,7 @@ export const aiPromptCatalog = {
       "Return only valid JSON with type, mood, intensity, question, optional followUp, and safetyNotes.",
     ],
     batch: [
-      "Return only valid JSON with a questions array.",
+      "Return only a valid JSON object with a questions array; do not return a bare array.",
       "Each item must include type, mood, intensity, question, optional followUp, and safetyNotes.",
     ],
   },
@@ -48,7 +48,7 @@ export const aiPromptCatalog = {
     after_dark: [
       "For after_dark prompts, write warmer adult-intimate prompts that remain consent-first.",
       "Invite desire, closeness, atmosphere, attention, affection, boundaries, and private compliments.",
-      "Explicitly graphic sexual acts, body details, coercive escalation, avoid humiliation, or shame.",
+      "Avoid explicitly graphic sexual acts, graphic body details, coercive escalation, humiliation, or shame.",
     ],
   } satisfies Record<PromptType, readonly string[]>,
   safetyRules: aiPromptSafetyRules,
